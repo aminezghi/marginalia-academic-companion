@@ -1,0 +1,478 @@
+// Firestore Emulator Security Rules - Marginalia Academic Companion
+// Version: 1.0
+// IMPORTANT: This file is for EMULATOR-ONLY testing.
+// Production deployment requires separate approval.
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    
+    // =========================================================================
+    // HELPER FUNCTIONS
+    // =========================================================================
+    
+    function isOwner(uid) {
+      return request.auth != null && request.auth.uid == uid;
+    }
+    
+    // =========================================================================
+    // ROOT USER DOCUMENT
+    // =========================================================================
+    match /users/{uid} {
+      // READ: User can read their own document
+      allow read: if isOwner(uid);
+      
+      // CREATE: User can create their own document on first sign-in
+      allow create: if isOwner(uid)
+        && request.resource.data.keys().hasOnly([
+          'uid', 'email', 'displayName', 'photoURL', 'provider', 
+          'createdAt', 'migratedFromGuest', 'guestMigrationId'
+        ])
+        && request.resource.data.uid == uid
+        && request.resource.data.email is string
+        && request.resource.data.email.size() > 0
+        && request.resource.data.createdAt is timestamp;
+      
+      // UPDATE: User can update mutable fields on their own document
+      allow update: if isOwner(uid)
+        && request.resource.data.keys().hasOnly([
+          'displayName', 'photoURL', 'lastLoginAt', 'provider',
+          'migratedAt', 'migratedFromGuest', 'guestMigrationId'
+        ])
+        && request.resource.data.uid == resource.data.uid;
+      
+      // DELETE: Never allowed
+      allow delete: if false;
+    }
+    
+    // =========================================================================
+    // SETTINGS DOCUMENT - SINGLE PER USER
+    // =========================================================================
+    match /users/{uid}/settings/current {
+      // READ: Owner can read
+      allow read: if isOwner(uid);
+      
+      // CREATE: Owner can create
+      allow create: if isOwner(uid)
+        && request.resource.data.keys().hasOnly([
+          'userId', 'createdAt', 'lastUpdated',
+          'shelfMaterial', 'shelfSortMode', 'soundEnabled',
+          'aiConfigured', 'theme', 'language',
+          'notifications', 'appearance', 'lastSynced', 'version'
+        ])
+        && request.resource.data.userId == uid;
+      
+      // UPDATE: Owner can update
+      allow update: if isOwner(uid)
+        && request.resource.data.keys().hasOnly([
+          'userId', 'createdAt', 'lastUpdated',
+          'shelfMaterial', 'shelfSortMode', 'soundEnabled',
+          'aiConfigured', 'theme', 'language',
+          'notifications', 'appearance', 'lastSynced', 'version'
+        ])
+        && request.resource.data.userId == uid;
+      
+      // DELETE: Never allowed
+      allow delete: if false;
+    }
+    
+    // =========================================================================
+    // PAPERS COLLECTION
+    // =========================================================================
+    match /users/{uid}/papers/{paperId} {
+      // READ: User can read their own papers
+      allow get: if isOwner(uid);
+      allow list: if isOwner(uid);
+      
+      // CREATE: User can create their own papers
+      allow create: if isOwner(uid)
+        && paperId == request.resource.data.id
+        && request.resource.data.keys().hasOnly([
+          'id', 'doi', 'title', 'shortTitle', 'authors', 'year', 'journal',
+          'volume', 'issue', 'pages', 'publisher', 'url', 'abstract',
+          'methodology', 'findings', 'keywords', 'categories', 'tags',
+          'rating', 'priority', 'readingStatus', 'createdAt', 'updatedAt',
+          'source', 'storagePath', 'pageCount', 'type', 'status',
+          'evaluation', 'field', 'secondaryCategories', 'importance'
+        ])
+        && request.resource.data.id is string
+        && request.resource.data.id.size() > 0
+        && request.resource.data.title is string
+        && request.resource.data.title.size() > 0
+        && request.resource.data.authors is list
+        && request.resource.data.year is string
+        && request.resource.data.year.size() > 0
+        && request.resource.data.readingStatus in ['inbox', 'to_read', 'reading', 'paused', 'completed', 'archive', 'reference_only']
+        && request.resource.data.priority in ['low', 'medium', 'high']
+        && request.resource.data.source in ['manual', 'doi', 'import', 'user', 'migrated'];
+      
+      // UPDATE: User can update their own papers
+      allow update: if isOwner(uid)
+        && paperId == request.resource.data.id
+        && request.resource.data.keys().hasOnly([
+          'id', 'doi', 'title', 'shortTitle', 'authors', 'year', 'journal',
+          'volume', 'issue', 'pages', 'publisher', 'url', 'abstract',
+          'methodology', 'findings', 'keywords', 'categories', 'tags',
+          'rating', 'priority', 'readingStatus', 'updatedAt',
+          'source', 'storagePath', 'pageCount', 'type', 'status',
+          'evaluation', 'field', 'secondaryCategories', 'importance'
+        ])
+        && request.resource.data.id == resource.data.id
+        && request.resource.data.createdAt == resource.data.createdAt;
+      
+      // DELETE: User can delete their own papers
+      allow delete: if isOwner(uid);
+    }
+    
+    // =========================================================================
+    // PAPERS > PDFs SUBCOLLECTION
+    // =========================================================================
+    match /users/{uid}/papers/{paperId}/PDFs/{pdfId} {
+      // READ: User can read PDF metadata for their papers
+      allow get: if isOwner(uid);
+      allow list: if isOwner(uid);
+      
+      // CREATE: User can create PDF metadata
+      allow create: if isOwner(uid)
+        && pdfId == request.resource.data.id
+        && request.resource.data.keys().hasOnly([
+          'id', 'paperId', 'fileName', 'fileSize', 'pageCount',
+          'uploadDate', 'storagePath', 'mimeType', 'status',
+          'textExtracted', 'processedAt', 'checksum'
+        ])
+        && request.resource.data.id is string
+        && request.resource.data.paperId == paperId
+        && request.resource.data.fileName is string
+        && request.resource.data.fileSize is number
+        && request.resource.data.fileSize > 0
+        && request.resource.data.fileSize <= 100 * 1024 * 1024
+        && request.resource.data.mimeType == 'application/pdf';
+      
+      // UPDATE: User can update their PDF metadata
+      allow update: if isOwner(uid) && pdfId == request.resource.data.id;
+      
+      // DELETE: User can delete their PDF metadata
+      allow delete: if isOwner(uid);
+    }
+    
+    // =========================================================================
+    // ANNOTATIONS SUBCOLLECTION
+    // =========================================================================
+    match /users/{uid}/papers/{paperId}/annotations/{annotationId} {
+      // READ
+      allow get: if isOwner(uid);
+      allow list: if isOwner(uid);
+      
+      // CREATE
+      allow create: if isOwner(uid)
+        && annotationId == request.resource.data.id
+        && request.resource.data.keys().hasOnly([
+          'id', 'paperId', 'content', 'type', 'color', 'note',
+          'pageNumber', 'textRange', 'position', 'createdAt', 'updatedAt', 'parentId'
+        ])
+        && request.resource.data.id is string
+        && request.resource.data.id.size() > 0
+        && request.resource.data.content is string
+        && request.resource.data.content.size() > 0
+        && request.resource.data.type in ['highlight', 'comment', 'question', 'insight', 'quote', 'tag']
+        && request.resource.data.color in ['yellow', 'blue', 'green', 'pink', 'orange'];
+      
+      // UPDATE
+      allow update: if isOwner(uid) && annotationId == request.resource.data.id;
+      
+      // DELETE
+      allow delete: if isOwner(uid);
+    }
+    
+    // =========================================================================
+    // VOLUMES COLLECTION
+    // =========================================================================
+    match /users/{uid}/volumes/{volumeId} {
+      // READ
+      allow get: if isOwner(uid);
+      allow list: if isOwner(uid);
+      
+      // CREATE
+      allow create: if isOwner(uid)
+        && volumeId == request.resource.data.id
+        && request.resource.data.keys().hasOnly([
+          'id', 'title', 'description', 'position', 'paperIds',
+          'spineTitle', 'spineAccent', 'coverPalette', 'createdAt', 'updatedAt',
+          'isPublic', 'metadata'
+        ])
+        && request.resource.data.title is string
+        && request.resource.data.title.size() > 0
+        && request.resource.data.position is int
+        && request.resource.data.position >= 1
+        && request.resource.data.paperIds is list;
+      
+      // UPDATE
+      allow update: if isOwner(uid) && volumeId == request.resource.data.id;
+      
+      // DELETE
+      allow delete: if isOwner(uid);
+    }
+    
+    // =========================================================================
+    // COLLECTIONS COLLECTION
+    // =========================================================================
+    match /users/{uid}/collections/{collectionId} {
+      // READ
+      allow get: if isOwner(uid);
+      allow list: if isOwner(uid);
+      
+      // CREATE
+      allow create: if isOwner(uid)
+        && collectionId == request.resource.data.id
+        && request.resource.data.keys().hasOnly([
+          'id', 'name', 'description', 'parentId', 'type', 'color',
+          'appearance', 'isSmart', 'smartFilter', 'paperIds', 'volumeIds',
+          'createdAt', 'updatedAt', 'createdBy'
+        ])
+        && request.resource.data.name is string
+        && request.resource.data.name.size() > 0
+        && request.resource.data.type in ['folder', 'project', 'topic', 'course', 'smart'];
+      
+      // UPDATE
+      allow update: if isOwner(uid) && collectionId == request.resource.data.id;
+      
+      // DELETE
+      allow delete: if isOwner(uid);
+    }
+    
+    // =========================================================================
+    // COLLECTIONS > MEMBERSHIPS SUBCOLLECTION
+    // =========================================================================
+    match /users/{uid}/collections/{collectionId}/memberships/{membershipId} {
+      // READ
+      allow get: if isOwner(uid);
+      allow list: if isOwner(uid);
+      
+      // CREATE
+      allow create: if isOwner(uid)
+        && request.resource.data.keys().hasOnly([
+          'paperId', 'volumeId', 'addedAt', 'addedBy', 'position'
+        ])
+        && (request.resource.data.paperId is string || request.resource.data.volumeId is string)
+        && request.resource.data.addedAt is timestamp;
+      
+      // UPDATE
+      allow update: if isOwner(uid);
+      
+      // DELETE
+      allow delete: if isOwner(uid);
+    }
+    
+    // =========================================================================
+    // READING PROGRESS COLLECTION
+    // =========================================================================
+    match /users/{uid}/readingProgress/{paperId} {
+      // READ
+      allow get: if isOwner(uid);
+      allow list: if isOwner(uid);
+      
+      // CREATE
+      allow create: if isOwner(uid)
+        && paperId == request.resource.data.paperId
+        && request.resource.data.keys().hasOnly([
+          'paperId', 'status', 'currentPage', 'totalPages', 'percent',
+          'lastReadAt', 'startedAt', 'completedAt', 'interruptedAt', 
+          'sessions'
+        ])
+        && request.resource.data.paperId is string
+        && request.resource.data.paperId.size() > 0
+        && request.resource.data.status in ['reading', 'to_read', 'completed', 'paused', 'archive', 'completed_read']
+        && request.resource.data.currentPage is int
+        && request.resource.data.currentPage >= 0
+        && request.resource.data.totalPages is int
+        && request.resource.data.totalPages >= 0
+        && request.resource.data.percent is int
+        && request.resource.data.percent >= 0 && request.resource.data.percent <= 100;
+      
+      // UPDATE
+      allow update: if isOwner(uid)
+        && paperId == request.resource.data.paperId
+        && request.resource.data.keys().hasOnly([
+          'paperId', 'status', 'currentPage', 'totalPages', 'percent',
+          'lastReadAt', 'completedAt', 'interruptedAt', 
+          'sessions'
+        ]);
+      
+      // DELETE
+      allow delete: if isOwner(uid);
+    }
+    
+    // =========================================================================
+    // NOTES COLLECTION
+    // =========================================================================
+    match /users/{uid}/notes/{noteId} {
+      // READ
+      allow get: if isOwner(uid);
+      allow list: if isOwner(uid);
+      
+      // CREATE
+      allow create: if isOwner(uid)
+        && noteId == request.resource.data.id
+        && request.resource.data.keys().hasOnly([
+          'id', 'title', 'content', 'type', 'paperIds', 
+          'collectionIds', 'tags', 'synthesisData',
+          'createdAt', 'updatedAt'
+        ])
+        && request.resource.data.title is string
+        && request.resource.data.title.size() > 0
+        && request.resource.data.content is string
+        && request.resource.data.type in ['paper', 'general', 'synthesis', 'question'];
+      
+      // UPDATE
+      allow update: if isOwner(uid)
+        && noteId == request.resource.data.id
+        && request.resource.data.keys().hasOnly([
+          'title', 'content', 'type', 'paperIds', 
+          'collectionIds', 'tags', 'synthesisData',
+          'updatedAt'
+        ]);
+      
+      // DELETE
+      allow delete: if isOwner(uid);
+    }
+    
+    // =========================================================================
+    // HIGHLIGHTS COLLECTION
+    // =========================================================================
+    match /users/{uid}/highlights/{highlightId} {
+      // READ
+      allow get: if isOwner(uid);
+      allow list: if isOwner(uid);
+      
+      // CREATE
+      allow create: if isOwner(uid)
+        && highlightId == request.resource.data.id
+        && request.resource.data.keys().hasOnly([
+          'id', 'paperId', 'pageNumber', 'text', 'color', 'note', 
+          'createdAt', 'updatedAt'
+        ])
+        && request.resource.data.id is string
+        && request.resource.data.id.size() > 0
+        && request.resource.data.pageNumber is int
+        && request.resource.data.pageNumber >= 1
+        && request.resource.data.color in ['yellow', 'blue', 'green', 'pink', 'orange'];
+      
+      // UPDATE
+      allow update: if isOwner(uid) && highlightId == request.resource.data.id;
+      
+      // DELETE
+      allow delete: if isOwner(uid);
+    }
+    
+    // =========================================================================
+    // BOOKMARKS COLLECTION
+    // =========================================================================
+    match /users/{uid}/bookmarks/{bookmarkId} {
+      // READ
+      allow get: if isOwner(uid);
+      allow list: if isOwner(uid);
+      
+      // CREATE
+      allow create: if isOwner(uid)
+        && request.resource.data.keys().hasOnly([
+          'id', 'paperId', 'pageNumber', 'label', 'createdAt'
+        ])
+        && request.resource.data.id is string
+        && request.resource.data.id.size() > 0
+        && request.resource.data.paperId is string
+        && request.resource.data.pageNumber is int
+        && request.resource.data.pageNumber >= 1;
+      
+      // UPDATE
+      allow update: if isOwner(uid);
+      
+      // DELETE
+      allow delete: if isOwner(uid);
+    }
+    
+    // =========================================================================
+    // GOALS COLLECTION
+    // =========================================================================
+    match /users/{uid}/goals/{goalId} {
+      // READ
+      allow get: if isOwner(uid);
+      allow list: if isOwner(uid);
+      
+      // CREATE
+      allow create: if isOwner(uid)
+        && request.resource.data.keys().hasOnly([
+          'id', 'type', 'label', 'target', 'period', 'current',
+          'startDate', 'endDate', 'completedAt'
+        ])
+        && request.resource.data.type in ['papers_per_week', 'minutes_per_day', 'papers_per_month']
+        && request.resource.data.target is int
+        && request.resource.data.target > 0
+        && request.resource.data.current is int
+        && request.resource.data.current >= 0
+        && request.resource.data.period in ['daily', 'weekly', 'monthly'];
+      
+      // UPDATE
+      allow update: if isOwner(uid);
+      
+      // DELETE
+      allow delete: if isOwner(uid);
+    }
+    
+    // =========================================================================
+    // ACTIVITIES COLLECTION (APPEND-ONLY)
+    // =========================================================================
+    match /users/{uid}/activities/{activityId} {
+      // READ
+      allow get: if isOwner(uid);
+      allow list: if isOwner(uid);
+      
+      // CREATE
+      allow create: if isOwner(uid)
+        && request.resource.data.keys().hasOnly([
+          'id', 'type', 'description', 'timestamp', 
+          'paperId', 'paperTitle', 'details'
+        ])
+        && request.resource.data.type in [
+          'added_paper', 'finished_paper', 'highlighted', 
+          'created_note', 'changed_status', 'imported', 
+          'profile_created', 'signed_in', 'migrated'
+        ]
+        && request.resource.data.description is string
+        && request.resource.data.description.size() > 0
+        && request.resource.data.timestamp is timestamp;
+      
+      // NO UPDATE OR DELETE - append-only
+    }
+    
+    // =========================================================================
+    // MIGRATIONS COLLECTION
+    // =========================================================================
+    match /users/{uid}/migrations/{migrationId} {
+      // READ
+      allow get: if isOwner(uid);
+      allow list: if isOwner(uid);
+      
+      // CREATE
+      allow create: if isOwner(uid)
+        && migrationId == request.resource.data.id
+        && request.resource.data.keys().hasOnly([
+          'id', 'uid', 'type', 'status', 'progress', 'startedAt',
+          'completedAt', 'verifiedAt', 'error',
+          'entityCounts', 'processedCounts',
+          'sourceChecksums', 'targetChecksums',
+          'currentPhase', 'phaseProgress',
+          'backupRetentionDays', 'recoveredFrom', 'retryCount'
+        ])
+        && request.resource.data.type == 'guest_to_account'
+        && request.resource.data.status in ['pending', 'running', 'in_progress', 'completed', 'failed', 'verified']
+        && request.resource.data.progress is int
+        && request.resource.data.progress >= 0 && request.resource.data.progress <= 100
+        && request.resource.data.startedAt is timestamp;
+      
+      // UPDATE
+      allow update: if isOwner(uid) && migrationId == request.resource.data.id;
+      
+      // DELETE
+      allow delete: if isOwner(uid);
+    }
+  }
+}

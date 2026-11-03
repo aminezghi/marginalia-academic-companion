@@ -1,0 +1,30 @@
+{
+  "version": 2,
+  "builds": [
+    {
+      "src": "server.ts",
+      "config": {
+        "includeFiles": ["src/**/*.ts", "src/**/*.tsx", "dist/**/*"]
+      }
+    }
+  ],
+  "routes": [
+    {
+      "src": "/api/(.*)",
+      "dest": "/server.ts"
+    },
+    {
+      "src": "/(.*)",
+      "dest": "/dist/index.html"
+    }
+  ],
+  "env": {
+    "GEMINI_API_KEY": "@gemini-api-key",
+    "VITE_FIREBASE_API_KEY": "@firebase-api-key",
+    "VITE_FIREBASE_AUTH_DOMAIN": "@firebase-auth-domain",
+    "VITE_FIREBASE_PROJECT_ID": "@firebase-project-id",
+    "VITE_FIREBASE_STORAGE_BUCKET": "@firebase-storage-bucket",
+    "VITE_FIREBASE_MESSAGING_SENDER_ID": "@firebase-sender-id",
+    "VITE_FIREBASE_APP_ID": "@firebase-app-id"
+  }
+}

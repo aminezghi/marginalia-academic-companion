@@ -1,0 +1,120 @@
+@import "tailwindcss";
+
+@theme {
+  --font-serif: 'Newsreader', Georgia, serif;
+  --font-sans: 'Inter Tight', -apple-system, BlinkMacSystemFont, sans-serif;
+  --font-mono: 'IBM Plex Mono', monospace;
+
+  --color-paper: #EDEBE6;
+  --color-sheet: #F4F2ED;
+  --color-ink: #141414;
+  --color-muted: #77736B;
+  --color-cobalt: #1F3FB0;
+  --color-green: #536B52;
+  --color-rule: rgba(20, 20, 20, 0.14);
+}
+
+:root {
+  --paper: #EDEBE6;
+  --sheet: #F4F2ED;
+  --ink: #141414;
+  --muted: #77736B;
+  --cobalt: #1F3FB0;
+  --green: #536B52;
+  --rule: rgba(20, 20, 20, 0.14);
+}
+
+/* Base Archival Styles */
+html {
+  font-family: var(--font-sans);
+  background-color: var(--paper);
+  color: var(--ink);
+  scroll-behavior: smooth;
+}
+
+body {
+  margin: 0;
+  padding: 0;
+  background-color: var(--paper);
+  color: var(--ink);
+  overflow-x: hidden;
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* Subtle paper texture overlay */
+.paper-grain {
+  background-image: radial-gradient(rgba(20, 20, 20, 0.04) 1px, transparent 0);
+  background-size: 24px 24px;
+}
+
+/* 3D Shelf Perspective Container */
+.shelf-perspective-container {
+  perspective: 1400px;
+  perspective-origin: 50% 48%;
+  transform-style: preserve-3d;
+}
+
+.preserve-3d {
+  transform-style: preserve-3d;
+}
+
+/* Editorial Hairline Dividers */
+.hairline-b {
+  border-bottom: 1px solid rgba(20, 20, 20, 0.12);
+}
+
+.hairline-t {
+  border-top: 1px solid rgba(20, 20, 20, 0.12);
+}
+
+.hairline-r {
+  border-right: 1px solid rgba(20, 20, 20, 0.12);
+}
+
+.hairline-l {
+  border-left: 1px solid rgba(20, 20, 20, 0.12);
+}
+
+.hairline-all {
+  border: 1px solid rgba(20, 20, 20, 0.12);
+}
+
+/* Custom Scrollbar for detail view */
+::-webkit-scrollbar {
+  width: 5px;
+  height: 5px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: rgba(20, 20, 20, 0.2);
+  border-radius: 2px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(31, 63, 176, 0.6);
+}
+
+/* Masked text transitions */
+.overflow-mask {
+  overflow: hidden;
+}
+
+/* Spine text vertical writing mode */
+.writing-vertical {
+  writing-mode: vertical-rl;
+  text-orientation: mixed;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  * {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}

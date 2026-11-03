@@ -1,0 +1,1397 @@
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
+import {
+  ResearchCategory,
+  ResearchItem,
+  ResearcherProfile,
+  CategoryDefinition,
+  ResearchCollection,
+  ResearchNote,
+  Highlight,
+  ReadingSession,
+  ReadingGoal,
+  ActivityLog,
+  ReadingStatus,
+  ShelfWoodMaterial,
+  ShelfSortMode,
+  CollectionAppearance,
+  BookAppearanceOverride,
+} from './types/research';
+import {
+  INITIAL_RESEARCH_ITEMS,
+  INITIAL_COLLECTIONS,
+  INITIAL_NOTES,
+  INITIAL_HIGHLIGHTS,
+  INITIAL_READING_SESSIONS,
+  INITIAL_GOALS,
+  INITIAL_ACTIVITY_LOGS,
+  RESEARCHER_PROFILE,
+  METHODOLOGY_CARDS,
+} from './data/researchData';
+import { DEFAULT_CATEGORY_APPEARANCES } from './data/bookAppearanceData';
+
+import { TopNav, MainViewMode } from './components/TopNav';
+import { CategoryTabs } from './components/CategoryTabs';
+import { ShelfArchive } from './components/ShelfArchive';
+import { ResearchCaption } from './components/ResearchCaption';
+import { LibraryView } from './components/LibraryView';
+import { DedicatedReader } from './components/DedicatedReader';
+import { NotesView } from './components/NotesView';
+import { ReadingTrackerView } from './components/ReadingTrackerView';
+import { AiAssistantView } from './components/AiAssistantView';
+import { ResearchMapView } from './components/ResearchMapView';
+import { CollectionsView } from './components/CollectionsView';
+import { DedicatedImportModal } from './components/DedicatedImportModal';
+import { LibraryCustomizerModal } from './components/LibraryCustomizerModal';
+
+import { ResearchDetailSheet } from './components/ResearchDetailSheet';
+import { ResearcherProfileModal } from './components/ResearcherProfileModal';
+import { MethodologyArchiveModal } from './components/MethodologyArchiveModal';
+import { ArticleEditorModal } from './components/ArticleEditorModal';
+import { CategoryManagerModal } from './components/CategoryManagerModal';
+import { CompanionToolsModal } from './components/CompanionToolsModal';
+import { CustomCursor } from './components/CustomCursor';
+import { Footer } from './components/Footer';
+import { Onboarding } from './components/Onboarding';
+import { ApiKeyPrompt } from './components/ApiKeyPrompt';
+import { AuthModal } from './components/AuthModal';
+
+import {
+  toggleSound,
+  playTactileClick,
+  playPaperRustle,
+  playSheetExpand,
+} from './utils/sound';
+
+import {
+  BookOpen,
+  FileText,
+  Upload,
+  Layers,
+  LayoutGrid,
+} from 'lucide-react';
+
+import { useAuth } from './contexts/AuthContext';
+import { useFirebaseSync } from './hooks/useFirebaseSync';
+
+const INITIAL_CATEGORIES: CategoryDefinition[] = [
+  { id: 'ALL', label: 'ALL RESEARCH', shortLabel: 'All' },
+  { id: 'FOOD SYSTEMS', label: 'FOOD SYSTEMS', shortLabel: 'Food Systems' },
+  { id: 'CONSUMER BEHAVIOUR', label: 'CONSUMER BEHAVIOUR', shortLabel: 'Consumer Behaviour' },
+  { id: 'BIG DATA', label: 'BIG DATA', shortLabel: 'Big Data' },
+  { id: 'IMMERSIVE TECHNOLOGIES', label: 'IMMERSIVE TECHNOLOGIES', shortLabel: 'Immersive Tech' },
+  { id: 'BIODIVERSITY', label: 'BIODIVERSITY', shortLabel: 'Biodiversity' },
+  { id: 'DIGITAL INNOVATION', label: 'DIGITAL INNOVATION', shortLabel: 'Digital Innovation' },
+  { id: 'RESEARCH PROJECTS', label: 'RESEARCH PROJECTS', shortLabel: 'Research Projects' },
+];
+
+// Arrange the default shelf order so the active centerpiece book ('item-01') sits right in the middle
+// flanked by left and right vintage volumes just like the reference artwork
+const DEFAULT_SHELF_ID_ORDER = [
+  'item-v01', // Sustainable Diets (REV 2019)
+  'item-v02', // Consumer Choice (EMP 2020)
+  'item-v03', // Food Environments (REV 2021)
+  'item-v04', // Nudging & Behaviour (EXP 2022)
+  'item-06',  // Big Data in Food (REV 2022/2025)
+  'item-08',  // VR & Eye Tracking (EMP 2023/2026)
+  'item-v05',  // Geographical Indications (PROJ 2023/2024)
+  'item-01',  // Mapping Consumer Trends for Healthy and Sustainable Food Choices (Active Centerpiece 2026)
+  'item-02',  // Digital Food Interactions (REV 2026)
+  'item-03',  // Social Supermarkets (EXP 2024/2025)
+  'item-04',  // CREDA Project (PROJ ONGO)
+  'item-07',  // BIOVALUE (PROJ 2021/2023)
+];
+
+function buildInitialOrderedItems(): ResearchItem[] {
+  const byId = new Map(INITIAL_RESEARCH_ITEMS.map((item) => [item.id, item]));
+  const ordered: ResearchItem[] = [];
+  for (const id of DEFAULT_SHELF_ID_ORDER) {
+    const found = byId.get(id);
+    if (found) {
+      ordered.push(found);
+      byId.delete(id);
+    }
+  }
+  for (const remaining of byId.values()) {
+    ordered.push(remaining);
+  }
+  return ordered;
+}
+
+export default function App() {
+  const { user, userProfile, loading: authLoading, signInWithGoogle, signInWithEmail, signUp, logout } = useAuth();
+  const { importLocalToCloud } = useFirebaseSync();
+
+  const handleOnboardingComplete = (profileData: ResearcherProfile) => {
+    setOnboardingProfile(profileData);
+    setIsOnboardingOpen(false);
+    // Initialize the library with the user's profile
+    logActivity('profile_created', `Created researcher profile: ${profileData.name}`, undefined, profileData.name);
+  };
+
+  // Auth Modal State
+  const [showAuthModal, setShowAuthModal] = useState<boolean>(false);
+  const [authMode, setAuthMode] = useState<'login' | 'signup'>('login');
+
+  // Handle showing auth modal when user not authenticated
+  useEffect(() => {
+    if (!authLoading && !user && !showAuthModal) {
+      // Show auth modal after a brief delay to let the app load
+      const timer = setTimeout(() => {
+        setShowAuthModal(true);
+        setAuthMode('login');
+      }, 1000);
+      return () => clearTimeout(timer);
+    }
+  }, [authLoading, user, showAuthModal]);
+
+  // Handle authentication events
+  const handleSignInWithGoogle = async () => {
+    try {
+      await signInWithGoogle();
+      // After successful sign-in, sync local data to cloud if this is a new user
+      if (userProfile) {
+        // Import local data to cloud
+        await importLocalToCloud(
+          user?.uid || '',
+          researchItems,
+          collections,
+          notes,
+          highlights,
+          readingSessions,
+          goals,
+          activities,
+          profile.profiles,
+          {
+            shelfMaterial,
+            shelfSortMode,
+            soundEnabled: soundActive,
+            aiConfigured: isAiConfigured,
+          }
+        );
+      }
+    } catch (error) {
+      console.error('Google sign-in failed:', error);
+    }
+  };
+
+  const handleSignIn = async (email: string, password: string) => {
+    try {
+      await signInWithEmail(email, password);
+      setShowAuthModal(false);
+    } catch (error) {
+      console.error('Email sign-in failed:', error);
+      throw error;
+    }
+  };
+
+  const handleSignUp = async (email: string, password: string, displayName: string) => {
+    try {
+      await signUp(email, password, displayName);
+      // After successful sign-up, sync local data to cloud
+      if (user?.uid) {
+        await importLocalToCloud(
+          user.uid,
+          researchItems,
+          collections,
+          notes,
+          highlights,
+          readingSessions,
+          goals,
+          activities,
+          profile.profiles,
+          {
+            shelfMaterial,
+            shelfSortMode,
+            soundEnabled: soundActive,
+            aiConfigured: isAiConfigured,
+          }
+        );
+      }
+      setShowAuthModal(false);
+    } catch (error) {
+      console.error('Sign-up failed:', error);
+      throw error;
+    }
+  };
+
+  const handleLogout = () => {
+    logout();
+  };
+
+  const handleOpenAuthModal = (mode: 'login' | 'signup') => {
+    setAuthMode(mode);
+    setShowAuthModal(true);
+  };
+
+  const handleCloseAuthModal = () => {
+    setShowAuthModal(false);
+  };
+
+  // Main View Mode (Defaults to 'shelf' - the defining physical vintage bookshelf experience)
+  const [activeView, setActiveView] = useState<MainViewMode>('shelf');
+  const [isOnboardingOpen, setIsOnboardingOpen] = useState<boolean>(false);
+  const [onboardingProfile, setOnboardingProfile] = useState<ResearcherProfile>({ id: 'profile-primary', name: '', title: '', program: '', primaryAffiliation: '', secondaryAffiliations: [], academicBackground: [], researchPillars: [], currentEnvironment: [], previousExperience: [], technicalExpertise: [], verifiedLinks: [] });
+  const [catalogDisplayFormat, setCatalogDisplayFormat] = useState<'grid' | 'list'>('grid');
+
+  // Shelf Navigation & Search States
+  const [activeCategory, setActiveCategory] = useState<ResearchCategory>('ALL');
+  const [searchQuery, setSearchQuery] = useState<string>('');
+  const [shelfIndex, setShelfIndex] = useState<number>(7); // Index 7 is 'item-01' (centerpiece volume)
+
+  // Persistent Shelf Material & Book Appearance Customization
+  const [shelfMaterial, setShelfMaterial] = useState<ShelfWoodMaterial>(() => {
+    if (typeof window !== 'undefined') {
+      const saved = localStorage.getItem('marginalia_shelf_material_v1') as ShelfWoodMaterial | null;
+      if (saved) return saved;
+    }
+    return 'walnut';
+  });
+
+  const [shelfSortMode, setShelfSortMode] = useState<ShelfSortMode>(() => {
+    if (typeof window !== 'undefined') {
+      const saved = localStorage.getItem('marginalia_shelf_sort_v1') as ShelfSortMode | null;
+      if (saved) return saved;
+    }
+    return 'custom';
+  });
+
+  const [categoryAppearances, setCategoryAppearances] = useState<
+    Record<string, CollectionAppearance>
+  >(() => {
+    if (typeof window !== 'undefined') {
+      try {
+        const saved = localStorage.getItem('marginalia_category_appearances_v1');
+        if (saved) {
+          return { ...DEFAULT_CATEGORY_APPEARANCES, ...JSON.parse(saved) };
+        }
+      } catch {}
+    }
+    return DEFAULT_CATEGORY_APPEARANCES;
+  });
+
+  // Active Reader Paper
+  const [activeReaderPaper, setActiveReaderPaper] = useState<ResearchItem | null>(null);
+
+  // Modals & Sheets
+  const [activeDetailItem, setActiveDetailItem] = useState<ResearchItem | null>(null);
+  const [isAboutOpen, setIsAboutOpen] = useState<boolean>(false);
+  const [isMethodologyOpen, setIsMethodologyOpen] = useState<boolean>(false);
+  const [isArticleEditorOpen, setIsArticleEditorOpen] = useState<boolean>(false);
+  const [editingItem, setEditingItem] = useState<ResearchItem | null>(null);
+  const [isCategoryManagerOpen, setIsCategoryManagerOpen] = useState<boolean>(false);
+  const [isCompanionToolsOpen, setIsCompanionToolsOpen] = useState<boolean>(false);
+  const [isImportModalOpen, setIsImportModalOpen] = useState<boolean>(false);
+  const [isCustomizerOpen, setIsCustomizerOpen] = useState<boolean>(false);
+  const [customizerTargetBook, setCustomizerTargetBook] = useState<ResearchItem | null>(null);
+
+  // AI Assistant API Key states
+  const [showApiKeyPrompt, setShowApiKeyPrompt] = useState<boolean>(false);
+  const [isAiConfigured, setIsAiConfigured] = useState<boolean>(false);
+  const [soundActive, setSoundActive] = useState<boolean>(true);
+
+  // Cursor state for hover effects
+  const [cursorState, setCursorState] = useState<{
+    isHoveringActive?: boolean;
+    label?: string;
+    isInteractive?: boolean;
+  }>({
+    isHoveringActive: false,
+    label: 'OPEN / EXPLORE',
+    isInteractive: false,
+  });
+
+  // Persistent Research Library (Merging any new default vintage volumes if user had older storage)
+  const [researchItems, setResearchItems] = useState<ResearchItem[]>(() => {
+    const defaults = buildInitialOrderedItems();
+    if (typeof window !== 'undefined') {
+      try {
+        const saved = localStorage.getItem('academic_archive_items_v3');
+        if (saved) return JSON.parse(saved);
+
+        // Migrate from v2 while ensuring all 12 vintage shelf books are present
+        const savedV2 = localStorage.getItem('academic_archive_items_v2');
+        if (savedV2) {
+          const parsedV2: ResearchItem[] = JSON.parse(savedV2);
+          const v2Map = new Map(parsedV2.map((p) => [p.id, p]));
+          const merged: ResearchItem[] = [];
+          for (const defItem of defaults) {
+            const existing = v2Map.get(defItem.id);
+            if (existing) {
+              merged.push({
+                ...defItem,
+                ...existing,
+                bookAppearance: existing.bookAppearance || defItem.bookAppearance,
+              });
+              v2Map.delete(defItem.id);
+            } else {
+              merged.push(defItem);
+            }
+          }
+          for (const extra of v2Map.values()) {
+            merged.push(extra);
+          }
+          return merged;
+        }
+      } catch {}
+    }
+    return defaults;
+  });
+
+  // Persistent Collections
+  const [collections, setCollections] = useState<ResearchCollection[]>(() => {
+    if (typeof window !== 'undefined') {
+      try {
+        const saved = localStorage.getItem('academic_archive_collections_v2');
+        if (saved) return JSON.parse(saved);
+      } catch {}
+    }
+    return INITIAL_COLLECTIONS;
+  });
+
+  // Persistent Notes
+  const [notes, setNotes] = useState<ResearchNote[]>(() => {
+    if (typeof window !== 'undefined') {
+      try {
+        const saved = localStorage.getItem('academic_archive_notes_v2');
+        if (saved) return JSON.parse(saved);
+      } catch {}
+    }
+    return INITIAL_NOTES;
+  });
+
+  // Persistent Highlights
+  const [highlights, setHighlights] = useState<Highlight[]>(() => {
+    if (typeof window !== 'undefined') {
+      try {
+        const saved = localStorage.getItem('academic_archive_highlights_v2');
+        if (saved) return JSON.parse(saved);
+      } catch {}
+    }
+    return INITIAL_HIGHLIGHTS;
+  });
+
+  // Persistent Reading Sessions
+  const [readingSessions, setReadingSessions] = useState<ReadingSession[]>(() => {
+    if (typeof window !== 'undefined') {
+      try {
+        const saved = localStorage.getItem('academic_archive_sessions_v2');
+        if (saved) return JSON.parse(saved);
+      } catch {}
+    }
+    return INITIAL_READING_SESSIONS;
+  });
+
+  // Persistent Reading Goals
+  const [goals, setGoals] = useState<ReadingGoal[]>(() => {
+    if (typeof window !== 'undefined') {
+      try {
+        const saved = localStorage.getItem('academic_archive_goals_v2');
+        if (saved) return JSON.parse(saved);
+      } catch {}
+    }
+    return INITIAL_GOALS;
+  });
+
+  // Persistent Activity Logs
+  const [activities, setActivities] = useState<ActivityLog[]>(() => {
+    if (typeof window !== 'undefined') {
+      try {
+        const saved = localStorage.getItem('academic_archive_activities_v2');
+        if (saved) return JSON.parse(saved);
+      } catch {}
+    }
+    return INITIAL_ACTIVITY_LOGS;
+  });
+
+  // Persistent Categories
+  const [categories, setCategories] = useState<CategoryDefinition[]>(() => {
+    if (typeof window !== 'undefined') {
+      try {
+        const saved = localStorage.getItem('academic_archive_categories_v2');
+        if (saved) return JSON.parse(saved);
+      } catch {}
+    }
+    return INITIAL_CATEGORIES;
+  });
+
+  // Persistent Profile - Use Firebase profile if logged in, else localStorage
+  const getInitialProfile = (): ResearcherProfile => {
+    // If user is authenticated via Firebase and has a profile, use that
+    if (userProfile?.profiles && userProfile.profiles.length > 0) {
+      return {
+        id: userProfile.uid,
+        name: userProfile.displayName || userProfile.email?.split('@')[0] || '',
+        title: userProfile.title || '',
+        program: userProfile.program || '',
+        primaryAffiliation: userProfile.primaryAffiliation || '',
+        secondaryAffiliations: userProfile.secondaryAffiliations || [],
+        academicBackground: userProfile.academicBackground || [],
+        researchPillars: userProfile.researchPillars || [],
+        currentEnvironment: userProfile.currentEnvironment || [],
+        previousExperience: userProfile.previousExperience || [],
+        technicalExpertise: userProfile.technicalExpertise || [],
+        verifiedLinks: userProfile.verifiedLinks || [],
+        profiles: userProfile.profiles || [],
+      };
+    }
+    // Fall back to localStorage
+    if (typeof window !== 'undefined') {
+      try {
+        const saved = localStorage.getItem('academic_archive_profile_v2');
+        if (saved) return JSON.parse(saved);
+      } catch {}
+    }
+    return RESEARCHER_PROFILE;
+  };
+
+  const [profile, setProfile] = useState<ResearcherProfile>(getInitialProfile);
+
+  // Sync profile from Firebase to local state
+  useEffect(() => {
+    if (userProfile) {
+      const firebaseProfile: ResearcherProfile = {
+        id: userProfile.uid,
+        name: userProfile.displayName || userProfile.email?.split('@')[0] || '',
+        title: userProfile.title || '',
+        program: userProfile.program || '',
+        primaryAffiliation: userProfile.primaryAffiliation || '',
+        secondaryAffiliations: userProfile.secondaryAffiliations || [],
+        academicBackground: userProfile.academicBackground || [],
+        researchPillars: userProfile.researchPillars || [],
+        currentEnvironment: userProfile.currentEnvironment || [],
+        previousExperience: userProfile.previousExperience || [],
+        technicalExpertise: userProfile.technicalExpertise || [],
+        verifiedLinks: userProfile.verifiedLinks || [],
+        profiles: userProfile.profiles || [],
+      };
+      setProfile(firebaseProfile);
+    }
+  }, [userProfile]);
+
+  // Log activity helper
+  const logActivity = useCallback(
+    (type: ActivityLog['type'], description: string, paperId?: string, paperTitle?: string) => {
+      const newLog: ActivityLog = {
+        id: 'act-' + Date.now(),
+        type,
+        description,
+        timestamp: new Date().toISOString(),
+        paperId,
+        paperTitle,
+      };
+      setActivities((prev) => [newLog, ...prev.slice(0, 49)]);
+    },
+    []
+  );
+
+  // Handle adding highlights
+  const handleAddHighlight = useCallback((highlight: Highlight) => {
+    setHighlights((prev) => [...prev, highlight]);
+  }, []);
+
+  const handleDeleteHighlight = useCallback((highlightId: string) => {
+    setHighlights((prev) => prev.filter((h) => h.id !== highlightId));
+  }, []);
+
+  // Handle updating reading progress
+  const handleUpdateReadingProgress = useCallback((itemId: string, percent: number) => {
+    setReadingSessions((prev) => {
+      const existing = prev.find((s) => s.paperId === itemId && s.isActive);
+      if (existing) {
+        return prev.map((s) => s.id === existing.id ? { ...s, progress: percent } : s);
+      }
+      return [...prev, {
+        id: 'sess-' + Date.now(),
+        paperId: itemId,
+        startTime: new Date().toISOString(),
+        durationMinutes: 0,
+        progress: percent,
+        isActive: true,
+      }];
+    });
+  }, []);
+
+  // Handle saving notes
+  const handleSaveNote = useCallback((note: ResearchNote) => {
+    setNotes((prev) => {
+      const existing = prev.find((n) => n.paperId === note.paperId);
+      if (existing) {
+        return prev.map((n) => n.id === existing.id ? note : n);
+      }
+      return [...prev, note];
+    });
+  }, []);
+
+  const handleDeleteNote = useCallback((noteId: string) => {
+    setNotes((prev) => prev.filter((n) => n.id !== noteId));
+  }, []);
+
+  // Handle saving articles
+  const handleSaveArticle = useCallback((item: ResearchItem) => {
+    setResearchItems((prev) => {
+      const existing = prev.find((i) => i.id === item.id);
+      if (existing) {
+        return prev.map((i) => i.id === item.id ? item : i);
+      }
+      return [...prev, item];
+    });
+    logActivity('created', `Created article: ${item.title}`, item.id, item.title);
+  }, [logActivity]);
+
+  // Handle deleting articles
+  const handleDeleteArticle = useCallback((paperId: string) => {
+    setResearchItems((prev) => prev.filter((p) => p.id !== paperId));
+    logActivity('deleted', `Deleted article with ID: ${paperId}`);
+  }, [logActivity]);
+
+  // Handle importing papers
+  const handleImportPapers = useCallback((papers: ResearchItem[]) => {
+    setResearchItems((prev) => [...prev, ...papers]);
+    logActivity('imported', `Imported ${papers.length} papers`);
+  }, [logActivity]);
+
+  // Handle moving book order
+  const handleMoveBookOrder = useCallback(
+    (paperId: string, direction: 'up' | 'down') => {
+      setResearchItems((prev) => {
+        const idx = prev.findIndex((p) => p.id === paperId);
+        if (idx < 0) return prev;
+        const targetIdx = direction === 'up' ? idx - 1 : idx + 1;
+        if (targetIdx < 0 || targetIdx >= prev.length) return prev;
+        const next = [...prev];
+        const [moved] = next.splice(idx, 1);
+        next.splice(targetIdx, 0, moved);
+        return next;
+      });
+    },
+    []
+  );
+
+  // Handle resetting to defaults
+  const handleResetToDefaults = useCallback(() => {
+    if (window.confirm('Are you sure you want to reset all research data to defaults? This cannot be undone.')) {
+      // Clear all localStorage items
+      localStorage.removeItem('academic_archive_items_v3');
+      localStorage.removeItem('academic_archive_items_v2');
+      localStorage.removeItem('academic_archive_collections_v2');
+      localStorage.removeItem('academic_archive_notes_v2');
+      localStorage.removeItem('academic_archive_highlights_v2');
+      localStorage.removeItem('academic_archive_sessions_v2');
+      localStorage.removeItem('academic_archive_goals_v2');
+      localStorage.removeItem('academic_archive_activities_v2');
+      localStorage.removeItem('academic_archive_categories_v2');
+      localStorage.removeItem('academic_archive_profile_v2');
+      localStorage.removeItem('marginalia_shelf_material_v1');
+      localStorage.removeItem('marginalia_shelf_sort_v1');
+      localStorage.removeItem('marginalia_category_appearances_v1');
+
+      // Reset all state to defaults
+      setResearchItems(buildInitialOrderedItems());
+      setCollections(INITIAL_COLLECTIONS);
+      setNotes(INITIAL_NOTES);
+      setHighlights(INITIAL_HIGHLIGHTS);
+      setReadingSessions(INITIAL_READING_SESSIONS);
+      setGoals(INITIAL_GOALS);
+      setActivities(INITIAL_ACTIVITY_LOGS);
+      setCategories(INITIAL_CATEGORIES);
+      setProfile(RESEARCHER_PROFILE);
+      setShelfMaterial('walnut');
+      setShelfSortMode('custom');
+      setCategoryAppearances(DEFAULT_CATEGORY_APPEARANCES);
+
+      logActivity('reset', 'Reset all research data to defaults');
+    }
+  }, [logActivity]);
+
+  // Handle updating category appearance
+  const handleUpdateCategoryAppearance = useCallback(
+    (categoryId: string, appearance: CollectionAppearance) => {
+      setCategoryAppearances((prev) => ({
+        ...prev,
+        [categoryId]: appearance,
+      }));
+    },
+    []
+  );
+
+  // Handle updating book appearance
+  const handleUpdateBookAppearance = useCallback(
+    (paperId: string, override: BookAppearanceOverride | undefined) => {
+      setResearchItems((prev) =>
+        prev.map((p) =>
+          p.id === paperId ? { ...p, bookAppearance: override } : p
+        )
+      );
+    },
+    []
+  );
+
+  // Open paper in reader
+  const handleOpenInReader = useCallback(
+    (paper: ResearchItem) => {
+      playSheetExpand();
+      setActiveReaderPaper(paper);
+      setActiveView('reader');
+      if (paper.readingStatus === 'inbox' || paper.readingStatus === 'to_read') {
+        setResearchItems((prev) =>
+          prev.map((p) => (p.id === paper.id ? { ...p, readingStatus: 'reading' } : p))
+        );
+        logActivity('changed_status', `Started reading ${paper.title}`, paper.id, paper.title);
+      }
+    },
+    [logActivity]
+  );
+
+  // Check Gemini API key status on mount
+  useEffect(() => {
+    const checkAiStatus = async () => {
+      try {
+        const response = await fetch('/api/gemini-status');
+        const data = await response.json();
+        setIsAiConfigured(data.configured || false);
+      } catch (error) {
+        // If check fails, assume not configured
+        setIsAiConfigured(false);
+      }
+    };
+
+    checkAiStatus();
+  }, []);
+
+  // Inquire paper in AI Assistant
+  const handleAskAiAboutPaper = useCallback(() => {
+    playTactileClick();
+    if (!isAiConfigured) {
+      setShowApiKeyPrompt(true);
+    } else {
+      setActiveView('assistant');
+    }
+  }, [isAiConfigured]);
+
+  // Bulk status update
+  const handleBulkUpdateStatus = useCallback(
+    (paperIds: string[], status: ReadingStatus) => {
+      playTactileClick();
+      setResearchItems((prev) =>
+        prev.map((p) => (paperIds.includes(p.id) ? { ...p, readingStatus: status } : p))
+      );
+      logActivity('changed_status', `Updated reading status to ${status} for ${paperIds.length} items`);
+    },
+    [logActivity]
+  );
+
+  // Bulk delete
+  const handleBulkDelete = useCallback(
+    (paperIds: string[]) => {
+      playTactileClick();
+      setResearchItems((prev) => prev.filter((p) => !paperIds.includes(p.id)));
+      if (activeReaderPaper && paperIds.includes(activeReaderPaper.id)) {
+        setActiveReaderPaper(null);
+      }
+      if (activeDetailItem && paperIds.includes(activeDetailItem.id)) {
+        setActiveDetailItem(null);
+      }
+      if (isAboutOpen) setIsAboutOpen(false);
+      if (isMethodologyOpen) setIsMethodologyOpen(false);
+      if (isArticleEditorOpen) setIsArticleEditorOpen(false);
+      if (isCategoryManagerOpen) setIsCategoryManagerOpen(false);
+      if (isCompanionToolsOpen) setIsCompanionToolsOpen(false);
+      if (isImportModalOpen) setIsImportModalOpen(false);
+      if (isCustomizerOpen) setIsCustomizerOpen(false);
+    },
+    [activeReaderPaper, activeDetailItem, isAboutOpen, isMethodologyOpen, isArticleEditorOpen, isCategoryManagerOpen, isCompanionToolsOpen, isImportModalOpen, isCustomizerOpen, playTactileClick]
+  );
+
+  // Keyboard shortcuts
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      // Skip if any modal is open
+      if (isAboutOpen || isMethodologyOpen || isArticleEditorOpen || isCategoryManagerOpen || isCompanionToolsOpen || isImportModalOpen || isCustomizerOpen) {
+        return;
+      }
+
+      if (e.key === 'Escape') {
+        if (activeDetailItem) setActiveDetailItem(null);
+        if (isAboutOpen) setIsAboutOpen(false);
+        if (isMethodologyOpen) setIsMethodologyOpen(false);
+        if (isArticleEditorOpen) setIsArticleEditorOpen(false);
+        if (isCategoryManagerOpen) setIsCategoryManagerOpen(false);
+        if (isCompanionToolsOpen) setIsCompanionToolsOpen(false);
+        if (isImportModalOpen) setIsImportModalOpen(false);
+        if (isCustomizerOpen) setIsCustomizerOpen(false);
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [
+    activeDetailItem,
+    isAboutOpen,
+    isMethodologyOpen,
+    isArticleEditorOpen,
+    isCategoryManagerOpen,
+    isCompanionToolsOpen,
+    isImportModalOpen,
+    isCustomizerOpen,
+  ]);
+
+  // Use Firebase profile data for display name
+  const displayName = profile.name || (user?.displayName || '');
+
+  // Loading state while auth is checking
+  if (authLoading) {
+    return (
+      <div className="relative min-h-screen flex items-center justify-center bg-[#EDE8DD]">
+        <div className="text-center">
+          <div className="text-3xl mb-4">📚</div>
+          <h1 className="text-2xl font-bold text-[#141414] mb-2">Marginalia</h1>
+          <p className="text-[#6B6B6B]">Loading your academic archive...</p>
+        </div>
+      </div>
+    );
+  }
+
+  // Show auth modal if user is not authenticated
+  if (!user && showAuthModal) {
+    return (
+      <AuthModal
+        isOpen={showAuthModal}
+        onClose={handleCloseAuthModal}
+        onSignInWithGoogle={handleSignInWithGoogle}
+        onSignIn={handleSignIn}
+        onSignUp={handleSignUp}
+        defaultMode={authMode}
+      />
+    );
+  }
+
+  const readingNowCount = useMemo(
+    () => researchItems.filter((p) => p.readingStatus === 'reading').length,
+    [researchItems]
+  );
+
+  return (
+    <div className="relative min-h-screen flex flex-col justify-between bg-[#EDE8DD] text-[#141414] paper-grain selection:bg-[#1F3FB0] selection:text-white">
+      {/* Editorial Custom Cursor (desktop only) */}
+      <CustomCursor
+        isHoveringActive={cursorState.isHoveringActive}
+        label={cursorState.label}
+        isInteractive={cursorState.isInteractive}
+      />
+
+      {/* Top Editorial Navigation */}
+      <TopNav
+        researcherName={displayName}
+        researcherTitle={profile.title}
+        affiliation={`${profile.primaryAffiliation} · FutureData4EU`}
+        activeView={activeView}
+        onChangeView={setActiveView}
+        onOpenAbout={() => {
+          playTactileClick();
+          setIsAboutOpen(true);
+        }}
+        onOpenMethodologies={() => {
+          playTactileClick();
+          setIsMethodologyOpen(true);
+        }}
+        onOpenNewArticle={() => {
+          playTactileClick();
+          setEditingItem(null);
+          setIsArticleEditorOpen(true);
+        }}
+        onOpenImport={() => {
+          playTactileClick();
+          setIsImportModalOpen(true);
+        }}
+        onOpenCompanionTools={() => {
+          playTactileClick();
+          setIsCompanionToolsOpen(true);
+        }}
+        onOpenCustomizer={() => {
+          playTactileClick();
+          setCustomizerTargetBook(activeShelfItem);
+          setIsCustomizerOpen(true);
+        }}
+        onLogout={user ? handleLogout : () => setShowAuthModal(true)}
+        searchQuery={searchQuery}
+        onSearchChange={(q) => {
+          setSearchQuery(q);
+          setShelfIndex(0);
+        }}
+        soundEnabled={soundActive}
+        onToggleSound={() => {
+          const updated = toggleSound();
+          setSoundActive(updated);
+          if (updated) playTactileClick();
+        }}
+        readingNowCount={readingNowCount}
+        totalNotesCount={notes.length}
+      />
+
+      {/* PRIMARY STAGE */}
+      <div className="flex-1 flex flex-col min-w-0">
+        {/* 1. PHYSICAL VINTAGE BOOKSHELF ARCHIVE (Primary Default View) */}
+        {activeView === 'shelf' && (
+          <main className="flex-1 flex flex-col justify-between animate-fadeIn">
+            {/* Sub-header Library Counter + Category Folder Tabs */}
+            <CategoryTabs
+              categories={categories}
+              activeCategory={activeCategory}
+              onSelectCategory={(cat) => {
+                setActiveCategory(cat);
+                if (cat === 'ALL') {
+                  const defaultCenter = researchItems.findIndex((i) => i.id === 'item-01');
+                  setShelfIndex(defaultCenter >= 0 ? defaultCenter : 0);
+                } else {
+                  setShelfIndex(0);
+                }
+              }}
+              items={researchItems}
+              onOpenCategoryManager={() => {
+                playTactileClick();
+                setIsCategoryManagerOpen(true);
+              }}
+              onOpenImport={() => {
+                playTactileClick();
+                setIsImportModalOpen(true);
+              }}
+              onOpenNewArticle={() => {
+                playTactileClick();
+                setEditingItem(null);
+                setIsArticleEditorOpen(true);
+              }}
+              onOpenCustomizer={() => {
+                playTactileClick();
+                setCustomizerTargetBook(activeShelfItem);
+                setIsCustomizerOpen(true);
+              }}
+              viewMode="shelf"
+              onChangeViewMode={(mode) => {
+                if (mode === 'shelf') {
+                  setActiveView('shelf');
+                } else {
+                  setCatalogDisplayFormat(mode);
+                  setActiveView('catalog');
+                }
+              }}
+            />
+
+            {/* Central 3D Physical Vintage Bookshelf */}
+            <div className="flex-1 flex flex-col justify-center my-auto">
+              <ShelfArchive
+                items={filteredShelfItems}
+                allItems={researchItems}
+                activeIndex={shelfIndex}
+                onSelectIndex={(idx) => {
+                  setShelfIndex(idx);
+                }}
+                onOpenDetail={(item) => {
+                  playSheetExpand();
+                  setActiveDetailItem(item);
+                }}
+                onReadPaper={handleOpenInReader}
+                onCustomizeBook={(item) => {
+                  playTactileClick();
+                  setCustomizerTargetBook(item);
+                  setIsCustomizerOpen(true);
+                }}
+                shelfMaterial={shelfMaterial}
+                categoryAppearances={categoryAppearances}
+                onCursorChange={setCursorState}
+              />
+
+              {/* Research Caption under Wooden Shelf */}
+              <ResearchCaption
+                item={activeShelfItem}
+                currentIndex={shelfIndex}
+                totalItems={filteredShelfItems.length}
+                onPrev={() => setShelfIndex((prev) => Math.max(0, prev - 1))}
+                onNext={() =>
+                  setShelfIndex((prev) =>
+                    Math.min(filteredShelfItems.length - 1, prev + 1)
+                  )
+                }
+                onSelectIndex={(idx) => setShelfIndex(idx)}
+                onOpen={(item) => {
+                  playSheetExpand();
+                  setActiveDetailItem(item);
+                }}
+                onReadPaper={handleOpenInReader}
+                onAskAi={handleAskAiAboutPaper}
+                onCustomizeBook={(item) => {
+                  playTactileClick();
+                  setCustomizerTargetBook(item);
+                  setIsCustomizerOpen(true);
+                }}
+              />
+            </div>
+          </main>
+        )}
+
+        {/* 2. CATALOG / INDEX VIEW (Grid or List View) */}
+        {activeView === 'catalog' && (
+          <div className="flex-1 animate-fadeIn">
+            <CategoryTabs
+              categories={categories}
+              activeCategory={activeCategory}
+              onSelectCategory={(cat) => {
+                setActiveCategory(cat);
+              }}
+              items={researchItems}
+              onOpenCategoryManager={() => {
+                playTactileClick();
+                setIsCategoryManagerOpen(true);
+              }}
+              onOpenImport={() => {
+                playTactileClick();
+                setIsImportModalOpen(true);
+              }}
+              onOpenNewArticle={() => {
+                playTactileClick();
+                setEditingItem(null);
+                setIsArticleEditorOpen(true);
+              }}
+              onOpenCustomizer={() => {
+                playTactileClick();
+                setCustomizerTargetBook(activeShelfItem);
+                setIsCustomizerOpen(true);
+              }}
+              viewMode={catalogDisplayFormat}
+              onChangeViewMode={(mode) => {
+                if (mode === 'shelf') {
+                  setActiveView('shelf');
+                } else {
+                  setCatalogDisplayFormat(mode);
+                  setActiveView('catalog');
+                }
+              }}
+            />
+            <LibraryView
+              papers={filteredShelfItems}
+              collections={collections}
+              categories={categories}
+              onSelectPaper={(paper) => {
+                playSheetExpand();
+                setActiveDetailItem(paper);
+              }}
+              onOpenReader={handleOpenInReader}
+              onOpenImport={() => {
+                playTactileClick();
+                setIsImportModalOpen(true);
+              }}
+              onBulkUpdateStatus={handleBulkUpdateStatus}
+              onBulkDelete={handleBulkDelete}
+              onCursorChange={setCursorState}
+            />
+          </div>
+        )}
+
+        {/* 3. DEDICATED ACADEMIC READER */}
+        {activeView === 'reader' && (
+          <DedicatedReader
+            paper={activeReaderPaper || researchItems[0] || null}
+            onClose={() => setActiveView('shelf')}
+            highlights={highlights.filter(
+              (h) => h.paperId === (activeReaderPaper?.id || researchItems[0]?.id)
+            )}
+            onAddHighlight={handleAddHighlight}
+            onDeleteHighlight={handleDeleteHighlight}
+            onUpdateReadingProgress={handleUpdateReadingProgress}
+          />
+        )}
+
+        {/* 4. RESEARCH NOTEBOOK & LITERATURE SYNTHESIS */}
+        {activeView === 'notes' && (
+          <div className="flex-1 animate-fadeIn">
+            <NotesView
+              notes={notes}
+              papers={researchItems}
+              onSaveNote={handleSaveNote}
+              onDeleteNote={handleDeleteNote}
+              onSelectPaper={(paper) => {
+                playSheetExpand();
+                setActiveDetailItem(paper);
+              }}
+            />
+          </div>
+        )}
+
+        {/* 5. READING TRACKER & HABIT GOALS */}
+        {activeView === 'tracker' && (
+          <div className="flex-1 animate-fadeIn">
+            <ReadingTrackerView
+              papers={researchItems}
+              goals={goals}
+              readingSessions={readingSessions}
+              highlights={highlights}
+              notes={notes}
+              onUpdateGoals={(newGoals) => {
+                playTactileClick();
+                setGoals(newGoals);
+              }}
+            />
+          </div>
+        )}
+
+        {/* 6. AI RESEARCH ASSISTANT (Ask Your Library) - Requires API key */}
+        {activeView === 'assistant' && (
+          <>
+            {!isAiConfigured && (
+              <ApiKeyPrompt
+                onDismiss={() => {
+                  setShowApiKeyPrompt(false);
+                  setActiveView('shelf');
+                }}
+              />
+            )}
+            {isAiConfigured && (
+              <div className="flex-1 animate-fadeIn">
+                <AiAssistantView
+                  papers={researchItems}
+                  onOpenPaperInReader={handleOpenInReader}
+                  onOpenPaperDetail={(paper) => {
+                    playSheetExpand();
+                    setActiveDetailItem(paper);
+                  }}
+                />
+              </div>
+            )}
+          </>
+        )}
+
+        {/* 7. RESEARCH MAP & KNOWLEDGE GRAPH */}
+        {activeView === 'graph' && (
+          <div className="flex-1 animate-fadeIn">
+            <ResearchMapView
+              papers={researchItems}
+              onOpenPaperInReader={handleOpenInReader}
+              onOpenPaperDetail={(paper) => {
+                playSheetExpand();
+                setActiveDetailItem(paper);
+              }}
+            />
+          </div>
+        )}
+
+        {/* 8. COLLECTIONS & TAGS TAXONOMY */}
+        {activeView === 'collections' && (
+          <div className="flex-1 animate-fadeIn">
+            <CollectionsView
+              papers={researchItems}
+              collections={collections}
+              onUpdateCollections={(cols) => {
+                playTactileClick();
+                setCollections(cols);
+              }}
+              onUpdatePapers={(updatedPapers) => {
+                setResearchItems(updatedPapers);
+              }}
+              onOpenPaperInReader={handleOpenInReader}
+              onOpenPaperDetail={(paper) => {
+                playSheetExpand();
+                setActiveDetailItem(paper);
+              }}
+            />
+          </div>
+        )}
+      </div>
+
+      {/* MOBILE BOTTOM NAVIGATION BAR (Screens < 768px) */}
+      <nav
+        className="md:hidden fixed bottom-0 inset-x-0 z-40 bg-[#EDE8DD]/95 backdrop-blur-md border-t border-[#141414]/20 py-1.5 px-3 flex items-center justify-around text-[10px] font-mono select-none"
+        aria-label="Mobile Navigation"
+      >
+        <button
+          onClick={() => {
+            playTactileClick();
+            setActiveView('shelf');
+          }}
+          className={`flex flex-col items-center gap-0.5 p-1 cursor-pointer ${
+            activeView === 'shelf' ? 'text-[#1F3FB0] font-semibold' : 'text-[#141414]/65'
+          }`}
+        >
+          <Layers className="w-4 h-4" />
+          <span>Shelf</span>
+        </button>
+
+        <button
+          onClick={() => {
+            playTactileClick();
+            setActiveView('catalog');
+          }}
+          className={`flex flex-col items-center gap-0.5 p-1 cursor-pointer ${
+            activeView === 'catalog' ? 'text-[#1F3FB0] font-semibold' : 'text-[#141414]/65'
+          }`}
+        >
+          <LayoutGrid className="w-4 h-4" />
+          <span>Catalog</span>
+        </button>
+
+        <button
+          onClick={() => {
+            playTactileClick();
+            setActiveView('reader');
+          }}
+          className={`flex flex-col items-center gap-0.5 p-1 cursor-pointer ${
+            activeView === 'reader' ? 'text-[#1F3FB0] font-semibold' : 'text-[#141414]/65'
+          }`}
+        >
+          <BookOpen className="w-4 h-4" />
+          <span>Reader</span>
+        </button>
+
+        <button
+          onClick={() => {
+            playTactileClick();
+            setActiveView('notes');
+          }}
+          className={`flex flex-col items-center gap-0.5 p-1 cursor-pointer ${
+            activeView === 'notes' ? 'text-[#1F3FB0] font-semibold' : 'text-[#141414]/65'
+          }`}
+        >
+          <FileText className="w-4 h-4" />
+          <span>Notes</span>
+        </button>
+
+        <button
+          onClick={() => {
+            playTactileClick();
+            setIsImportModalOpen(true);
+          }}
+          className="flex flex-col items-center gap-0.5 p-1 text-[#1F3FB0] cursor-pointer font-bold"
+        >
+          <Upload className="w-4 h-4" />
+          <span>Ingest</span>
+        </button>
+      </nav>
+
+      {/* Minimal Editorial Footer (Shown when in shelf or catalog mode) */}
+      {(activeView === 'shelf' || activeView === 'catalog') && (
+        <div className="pb-14 md:pb-0">
+          <Footer 
+            affiliation={`${profile.primaryAffiliation} · FutureData4EU`}
+            onOpenOnboarding={() => setIsOnboardingOpen(true)}
+          />
+        </div>
+      )}
+
+      {/* MODALS & WORKSPACES */}
+
+      {/* Vintage Library & Bookbinding Customizer Studio */}
+      <LibraryCustomizerModal
+        isOpen={isCustomizerOpen}
+        onClose={() => setIsCustomizerOpen(false)}
+        items={researchItems}
+        categories={categories}
+        initialSelectedBook={customizerTargetBook || activeShelfItem}
+        shelfMaterial={shelfMaterial}
+        onChangeShelfMaterial={setShelfMaterial}
+        sortMode={shelfSortMode}
+        onChangeSortMode={setShelfSortMode}
+        categoryAppearances={categoryAppearances}
+        onUpdateCategoryAppearance={handleUpdateCategoryAppearance}
+        onUpdateBookAppearance={handleUpdateBookAppearance}
+        onMoveBookOrder={handleMoveBookOrder}
+      />
+
+      {/* Dedicated Ingestion Studio (DOI Crossref, PDF, BibTeX, RIS, CSV) */}
+      <DedicatedImportModal
+        isOpen={isImportModalOpen}
+        onClose={() => setIsImportModalOpen(false)}
+        existingPapers={researchItems}
+        onImportPapers={handleImportPapers}
+        categories={categories}
+      />
+
+      {/* Immersive Paper-like Detail Sheet Modal with Scroll Progress Bar */}
+      {activeDetailItem && (
+        <ResearchDetailSheet
+          item={activeDetailItem}
+          onClose={() => setActiveDetailItem(null)}
+          onNavigatePrev={() => {
+            const idx = filteredShelfItems.findIndex((x) => x.id === activeDetailItem.id);
+            if (idx > 0) {
+              setActiveDetailItem(filteredShelfItems[idx - 1]);
+              setShelfIndex(idx - 1);
+            }
+          }}
+          onNavigateNext={() => {
+            const idx = filteredShelfItems.findIndex((x) => x.id === activeDetailItem.id);
+            if (idx < filteredShelfItems.length - 1) {
+              setActiveDetailItem(filteredShelfItems[idx + 1]);
+              setShelfIndex(idx + 1);
+            }
+          }}
+          hasPrev={filteredShelfItems.findIndex((x) => x.id === activeDetailItem.id) > 0}
+          hasNext={
+            filteredShelfItems.findIndex((x) => x.id === activeDetailItem.id) <
+            filteredShelfItems.length - 1
+          }
+          onEdit={() => {
+            setEditingItem(activeDetailItem);
+            setIsArticleEditorOpen(true);
+          }}
+          onDelete={handleDeleteArticle}
+          onStatusChange={(newStatus: ReadingStatus) => {
+            handleBulkUpdateStatus([activeDetailItem.id], newStatus);
+            setActiveDetailItem((curr) => (curr ? { ...curr, readingStatus: newStatus } : null));
+          }}
+          onOpenInReader={handleOpenInReader}
+        />
+      )}
+
+      {/* Article Authoring / Editing Modal */}
+      {isArticleEditorOpen && (
+        <ArticleEditorModal
+          isOpen={isArticleEditorOpen}
+          initialItem={editingItem}
+          categories={categories}
+          onClose={() => {
+            setIsArticleEditorOpen(false);
+            setEditingItem(null);
+          }}
+          onSave={handleSaveArticle}
+        />
+      )}
+
+      {/* Category Manager Modal */}
+      {isCategoryManagerOpen && (
+        <CategoryManagerModal
+          isOpen={isCategoryManagerOpen}
+          categories={categories}
+          researchItems={researchItems}
+          onClose={() => setIsCategoryManagerOpen(false)}
+          onUpdateCategories={(newCats: CategoryDefinition[]) => {
+            setCategories(newCats);
+          }}
+          onReassignCategory={(oldCat, newCat) => {
+            setResearchItems((prev) =>
+              prev.map((i) => (i.category === oldCat ? { ...i, category: newCat } : i))
+            );
+          }}
+        />
+      )}
+
+      {/* Researcher Profile Modal */}
+      {isAboutOpen && (
+        <ResearcherProfileModal
+          isOpen={isAboutOpen}
+          profile={profile}
+          onClose={() => setIsAboutOpen(false)}
+          onUpdateProfile={(updated) => setProfile((p) => ({ ...p, ...updated }))}
+        />
+      )}
+
+      {/* Methodology Archive Modal */}
+      {isMethodologyOpen && (
+        <MethodologyArchiveModal
+          isOpen={isMethodologyOpen}
+          methodologies={METHODOLOGY_CARDS}
+          allResearchItems={researchItems}
+          onClose={() => setIsMethodologyOpen(false)}
+          onSelectResearchItem={(item) => {
+            setIsMethodologyOpen(false);
+            setActiveDetailItem(item);
+          }}
+        />
+      )}
+
+      {/* Companion Archive Tools (Export BibTeX, Backup, Restore) */}
+      {isCompanionToolsOpen && (
+        <CompanionToolsModal
+          isOpen={isCompanionToolsOpen}
+          onClose={() => setIsCompanionToolsOpen(false)}
+          researchItems={researchItems}
+          categories={categories}
+          profile={profile}
+          onImportData={(imported) => {
+            if (imported.researchItems) setResearchItems(imported.researchItems);
+            if (imported.categories) setCategories(imported.categories);
+            if (imported.profile) setProfile(imported.profile);
+          }}
+          onResetToDefaults={handleResetToDefaults}
+        />
+      )}
+
+      {/* Onboarding Flow (First-time User Setup) */}
+      {isOnboardingOpen && (
+        <Onboarding
+          onComplete={handleOnboardingComplete}
+          onSkip={() => setIsOnboardingOpen(false)}
+        />
+      )}
+    </div>
+  );
+}
+
+// Filter and sort shelf items by active category, search query, and shelfSortMode
+const useFilteredShelfItems = (
+  researchItems: ResearchItem[],
+  activeCategory: ResearchCategory,
+  searchQuery: string,
+  shelfSortMode: ShelfSortMode
+) => {
+  const filtered = useMemo(() => {
+    let list = researchItems;
+
+    if (activeCategory !== 'ALL') {
+      list = list.filter(
+        (item) =>
+          item.category === activeCategory ||
+          item.secondaryCategories?.includes(activeCategory)
+      );
+    }
+
+    if (searchQuery.trim()) {
+      const q = searchQuery.toLowerCase().trim();
+      list = list.filter(
+        (item) =>
+          item.title.toLowerCase().includes(q) ||
+          item.shortTitle.toLowerCase().includes(q) ||
+          item.field.toLowerCase().includes(q) ||
+          item.authors.some((a) => a.toLowerCase().includes(q)) ||
+          item.tags.some((t) => t.toLowerCase().includes(q)) ||
+          item.year.includes(q)
+      );
+    }
+
+    if (shelfSortMode === 'custom') {
+      return list;
+    }
+
+    const sorted = [...list];
+    if (shelfSortMode === 'year') {
+      sorted.sort((a, b) => (parseInt(b.year) || 0) - (parseInt(a.year) || 0));
+    } else if (shelfSortMode === 'title') {
+      sorted.sort((a, b) => a.title.localeCompare(b.title));
+    } else if (shelfSortMode === 'author') {
+      sorted.sort((a, b) =>
+        (a.authors[0] || '').localeCompare(b.authors[0] || '')
+      );
+    } else if (shelfSortMode === 'status') {
+      const order: Record<string, number> = {
+        reading: 1,
+        to_read: 2,
+        inbox: 3,
+        completed: 4,
+        reference_only: 5,
+        paused: 6,
+        archived: 7,
+      };
+      sorted.sort(
+        (a, b) =>
+          (order[a.readingStatus] || 9) - (order[b.readingStatus] || 9)
+      );
+    } else if (shelfSortMode === 'recent') {
+      sorted.reverse();
+    }
+    return sorted;
+  }, [researchItems, activeCategory, searchQuery, shelfSortMode]);
+
+  return filtered;
+};
+
+// Get active shelf item
+const useActiveShelfItem = (filtered: ResearchItem[], shelfIndex: number) => {
+  return filtered[shelfIndex] || filtered[0] || null;
+};

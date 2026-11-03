@@ -1,0 +1,1 @@
+- Guest mode persistence = -f /tmp/server.log

@@ -157,11 +157,11 @@ export const AiAssistantView: React.FC<AiAssistantViewProps> = ({
         }),
       });
 
+      const data = await response.json().catch(() => ({}));
       if (!response.ok) {
-        throw new Error(`API error: ${response.status}`);
+        if (data.code === 'API_KEY_REQUIRED') onShowApiKeyPrompt?.();
+        throw new Error(data.error || `AI request failed (${response.status}).`);
       }
-
-      const data = await response.json();
 
       // Find citations in the returned response
       const matchedCitations: CitationSource[] = [];
@@ -193,22 +193,15 @@ export const AiAssistantView: React.FC<AiAssistantViewProps> = ({
       };
 
       setMessages((prev) => [...prev, assistantMsg]);
-    } catch {
-      // Local fallback synthesizer if server is unreachable
-      const fallbackAnswer = generateLocalSynthesis(textToSend, modeToSend, targetPapers);
+    } catch (error) {
       const assistantMsg: Message = {
         id: 'msg-fallback-' + Date.now(),
         role: 'assistant',
-        content: fallbackAnswer,
+        content: error instanceof Error
+          ? `AI is unavailable: ${error.message}`
+          : 'AI is unavailable. Check the API key and internet connection, then try again.',
         timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
         mode: modeToSend,
-        citedPapers: targetPapers.slice(0, 3).map((p, idx) => ({
-          index: idx + 1,
-          title: p.title,
-          year: p.year,
-          authors: p.authors,
-          paperId: p.id,
-        })),
       };
       setMessages((prev) => [...prev, assistantMsg]);
     } finally {
@@ -223,24 +216,6 @@ export const AiAssistantView: React.FC<AiAssistantViewProps> = ({
     setTimeout(() => setCopiedId(null), 2000);
   };
 
-
-  useEffect(() => {
-    async function fetchGeminiStatus() {
-      try {
-        const response = await fetch('/api/gemini-status');
-        if (response.ok) {
-          const data = await response.json();
-          if (!data.configured) {
-            onShowApiKeyPrompt?.();
-          }
-        }
-      } catch (error) {
-        console.error('Failed to fetch Gemini status:', error);
-        onShowApiKeyPrompt?.();
-      }
-    }
-    fetchGeminiStatus();
-  }, [onShowApiKeyPrompt]);
 
   return (
     <div className="min-h-screen bg-[#EDEBE6] text-[#141414] pb-24">
@@ -654,62 +629,3 @@ export const AiAssistantView: React.FC<AiAssistantViewProps> = ({
 };
 
 // Fallback logic for offline synthesis
-function generateLocalSynthesis(query: string, mode: string, papers: ResearchItem[]): string {
-  if (papers.length === 0) {
-    return 'No papers available in library to synthesize.';
-  }
-
-  const p1 = papers[0];
-  const p2 = papers[1] || papers[0];
-
-  if (mode === 'compare' && papers.length >= 2) {
-    const p1Methods = p1.methods ? p1.methods.join(', ') : 'empirical assessment';
-    const p1Findings = p1.keyFindings ? p1.keyFindings.join('. ') : 'high predictive validity';
-    const p2Findings = p2.keyFindings ? p2.keyFindings.join('. ') : 'notable effect sizes';
-    return `### Comparative Methodological Analysis: [Source 1] vs [Source 2]
-
-**1. Research Focus & Theoretical Grounding**
-- **[Source 1: ${p1.title}, ${p1.year}]**: Explores ${p1.category.toLowerCase()}, leveraging ${p1Methods}. Focuses on behavioral validation.
-- **[Source 2: ${p2.title}, ${p2.year}]**: Approaches the domain from ${p2.category.toLowerCase()}, centering on consumer cognitive load and decision architecture.
-
-**2. Key Findings & Synthesis**
-Across both investigations, evidence consistently underscores that contextual visual cues significantly alter decision latency. Specifically, findings in Source 1 (${p1Findings.slice(0, 120)}) complement the observations in Source 2 (${p2Findings.slice(0, 120)}).
-
-**3. Methodological Divergence**
-While Source 1 prioritizes ${p1Methods}, Source 2 offers wider ecological validity. Both studies highlight an urgent need for longitudinal field replications.`;
-  }
-
-  if (mode === 'synthesis') {
-    const authorName = Array.isArray(p1.authors) ? p1.authors[0] : (p1.authors || 'the authors');
-    return `### Literature Synthesis Matrix across Selected Works
-
-**1. Core Thematic Clusters**
-Analysis of the selected corpus reveals three primary structural pillars:
-- **Decision Architecture & Information Processing:** Studies consistently indicate that cognitive friction reduces sustainable choice adoption.
-- **Ecological & Biodiversity Indicators:** Research by ${authorName} (${p1.year}) shows that explicit provenance and geographical indication designations yield higher trust benchmarks.
-- **Immersive Evaluation Environments:** Laboratory protocols incorporating sensory cues demonstrate higher predictive parity compared to traditional surveys.
-
-**2. Convergent Findings**
-- Visual prominence directly influences choice efficiency ([Source 1: ${p1.title}, ${p1.year}]).
-- Information framing must minimize perceived trade-offs ([Source 2: ${p2.title}, ${p2.year}]).
-
-**3. Identified Gaps for Future Research**
-The current literature leaves open questions regarding long-term habituation when digital nudges become ubiquitous in everyday grocery platforms.`;
-  }
-
-  const p1Evidence = p1.keyFindings ? p1.keyFindings.join('. ') : 'consumer behavior is shaped by both implicit cognitive biases and explicit informational heuristics';
-  const p1Methods = p1.methods ? p1.methods.join(', ') : 'controlled behavioral trials';
-
-  return `### Academic Inquiry Response: "${query}"
-
-Based on the indexed publications in your personal library:
-
-1. **Foundational Evidence ([Source 1: ${p1.title}, ${p1.year}])**:
-The empirical evidence indicates that ${p1Evidence}. The methodology employed (${p1Methods}) provides robust validity.
-
-2. **Cross-Referenced Insights ([Source 2: ${p2.title}, ${p2.year}])**:
-Complementary analysis underscores that intervention timing is critical. When interventions occur at the immediate point-of-choice, sustainable selection rates increase substantially.
-
-3. **Synthesis & Implications**:
-For research design in this domain, integrating multi-modal telemetry (e.g. eye tracking alongside choice metrics) yields substantially richer predictive power than self-reported intentions alone.`;
-}

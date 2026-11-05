@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo, useCallback } from 'react';
+import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import {
   ResearchCategory,
   ResearchItem,
@@ -15,6 +15,7 @@ import {
   ShelfSortMode,
   CollectionAppearance,
   BookAppearanceOverride,
+  ImportDestination,
 } from './types/research';
 import {
   INITIAL_RESEARCH_ITEMS,
@@ -35,6 +36,7 @@ import { ShelfArchive } from './components/ShelfArchive';
 import { ResearchCaption } from './components/ResearchCaption';
 import { LibraryView } from './components/LibraryView';
 import { DedicatedReader } from './components/DedicatedReader';
+import { BookContentsModal } from './components/BookContentsModal';
 import { NotesView } from './components/NotesView';
 import { ReadingTrackerView } from './components/ReadingTrackerView';
 import { AiAssistantView } from './components/AiAssistantView';
@@ -50,6 +52,7 @@ import { ArticleEditorModal } from './components/ArticleEditorModal';
 import { CategoryManagerModal } from './components/CategoryManagerModal';
 import { CompanionToolsModal } from './components/CompanionToolsModal';
 import { AuthModal } from './components/AuthModal';
+import { AccountSettingsModal } from './components/AccountSettingsModal';
 import { CustomCursor } from './components/CustomCursor';
 import { Footer } from './components/Footer';
 import { ApiKeyPrompt } from './components/ApiKeyPrompt';
@@ -64,6 +67,8 @@ import {
 
 import { useAuth } from './contexts/AuthContext';
 import { useFirebaseSync } from './hooks/useFirebaseSync';
+import { clearGuestPdfFiles, storeGuestPdfFile } from './services/pdfDocuments';
+import type { PdfDocumentReference } from './services/pdfDocuments';
 
 import {
   BookOpen,
@@ -117,18 +122,28 @@ function buildInitialOrderedItems(): ResearchItem[] {
   return ordered;
 }
 
+function isIndividualResearchPaper(item: ResearchItem): boolean {
+  const type = (item.type || '').toLowerCase();
+  if (/\b(project|initiative|monograph|book|volume|deliverable)\b/.test(type)) return false;
+  return /\b(articles?|papers?|reviews?|chapters?|journal|conference)\b/i.test(type)
+    || Boolean(item.doi || item.journal || item.abstract);
+}
+
 export default function App() {
   // Firebase Auth
-  const { user, signInWithGoogle, signInWithEmail, signUp, logout, userProfile } = useAuth();
-  const { syncToCloud, importLocalToCloud } = useFirebaseSync();
+  const { user, loading: authLoading, signInWithGoogle, signInWithEmail, signUp, logout, userProfile, updateUserSettings, sendPasswordReset, verifyResetCode, confirmPasswordReset, exportUserData, deleteAccount } = useAuth();
+  const { syncToCloud, importLocalToCloud, uploadPdf, persistPaperPdfAttachment, clearUserContent, deleteUserCollection } = useFirebaseSync();
   
   // Auth modal state
   const [showAuthModal, setShowAuthModal] = useState(false);
-  const [authMode, setAuthMode] = useState<'login' | 'signup'>('login');
+  const [authMode, setAuthMode] = useState<'login' | 'signup' | 'forgot-password' | 'reset-password'>('login');
   const [showApiKeyPrompt, setShowApiKeyPrompt] = useState(false);
-  const [isSettingsOpen, setIsSettingsOpen] = useState(false);
-  const [isProfileOpen, setIsProfileOpen] = useState(false);
+  const [geminiConfigured, setGeminiConfigured] = useState<boolean | null>(null);
   const [isOnboardingOpen, setIsOnboardingOpen] = useState(false);
+  const [isAccountSettingsOpen, setIsAccountSettingsOpen] = useState(false);
+  const [guestModeEnabled, setGuestModeEnabled] = useState(() =>
+    typeof window !== 'undefined' && localStorage.getItem('marginalia_guest_mode_v1') === 'true'
+  );
 
   // Use Firebase user profile or fall back to local defaults
   const profile: ResearcherProfile = {
@@ -149,7 +164,29 @@ export default function App() {
 
   // Main View Mode (Defaults to 'shelf' - the defining physical vintage bookshelf experience)
   const [activeView, setActiveView] = useState<MainViewMode>('shelf');
+  const [readerReturnView, setReaderReturnView] = useState<MainViewMode>('shelf');
+  const [collectionsSelection, setCollectionsSelection] = useState('all');
   const [catalogDisplayFormat, setCatalogDisplayFormat] = useState<'grid' | 'list'>('grid');
+
+  useEffect(() => {
+    let isCurrent = true;
+    fetch('/api/gemini-status', { cache: 'no-store' })
+      .then(async (response) => {
+        if (!response.ok) throw new Error('AI status unavailable');
+        const status = await response.json();
+        if (isCurrent) setGeminiConfigured(status.configured === true);
+      })
+      .catch(() => {
+        if (isCurrent) setGeminiConfigured(false);
+      });
+    return () => { isCurrent = false; };
+  }, []);
+
+  useEffect(() => {
+    if (activeView === 'assistant' && geminiConfigured === false) {
+      setShowApiKeyPrompt(true);
+    }
+  }, [activeView, geminiConfigured]);
 
   // Shelf Navigation & Search States
   const [activeCategory, setActiveCategory] = useState<ResearchCategory>('ALL');
@@ -193,6 +230,12 @@ export default function App() {
 
   // Active Reader Paper
   const [activeReaderPaper, setActiveReaderPaper] = useState<ResearchItem | null>(null);
+  const [readerQueueIds, setReaderQueueIds] = useState<string[]>([]);
+  const [readerScope, setReaderScope] = useState<string | null>(null);
+  const [activeBookPaperIds, setActiveBookPaperIds] = useState<string[] | null>(null);
+  const [activeBookTitle, setActiveBookTitle] = useState('Research Papers');
+  const [activeBookCollectionId, setActiveBookCollectionId] = useState<string | null>(null);
+  const [importCollectionIds, setImportCollectionIds] = useState<string[]>([]);
 
   // Modals & Sheets
   const [activeDetailItem, setActiveDetailItem] = useState<ResearchItem | null>(null);
@@ -208,6 +251,7 @@ export default function App() {
 
   // Sound & Cursor state
   const [soundActive, setSoundActive] = useState<boolean>(true);
+  const settingsLoadedForUid = useRef<string | null>(null);
   const [cursorState, setCursorState] = useState<{
     isHoveringActive?: boolean;
     label?: string;
@@ -217,6 +261,48 @@ export default function App() {
     label: 'OPEN / EXPLORE',
     isInteractive: false,
   });
+
+  // Load cloud settings before syncing local state so login cannot replace an
+  // existing user's preferences with this device's defaults.
+  useEffect(() => {
+    if (!user) {
+      settingsLoadedForUid.current = null;
+      return;
+    }
+    if (!userProfile || userProfile.uid !== user.uid) return;
+
+    if (settingsLoadedForUid.current !== user.uid) {
+      const settings = userProfile.settings;
+      const shelfMaterials: ShelfWoodMaterial[] = [
+        'walnut', 'oak', 'mahogany', 'ebony', 'light_wood', 'paper',
+      ];
+      const shelfSortModes: ShelfSortMode[] = [
+        'custom', 'recent', 'year', 'title', 'author', 'status',
+      ];
+      if (shelfMaterials.some((value) => value === settings.shelfMaterial)) {
+        setShelfMaterial(settings.shelfMaterial);
+      }
+      if (shelfSortModes.some((value) => value === settings.shelfSortMode)) {
+        setShelfSortMode(settings.shelfSortMode);
+      }
+      setSoundActive(settings.soundEnabled);
+      settingsLoadedForUid.current = user.uid;
+      return;
+    }
+
+    void updateUserSettings({ shelfMaterial, shelfSortMode, soundEnabled: soundActive })
+      .catch((error: unknown) => console.error('Could not save account settings:', error));
+  }, [
+    user?.uid,
+    userProfile?.uid,
+    userProfile?.settings.shelfMaterial,
+    userProfile?.settings.shelfSortMode,
+    userProfile?.settings.soundEnabled,
+    shelfMaterial,
+    shelfSortMode,
+    soundActive,
+    updateUserSettings,
+  ]);
 
   // Persistent Research Library (Merging any new default vintage volumes if user had older storage)
   const [researchItems, setResearchItems] = useState<ResearchItem[]>(() => {
@@ -413,8 +499,9 @@ export default function App() {
     try {
       await signInWithGoogle();
       setShowAuthModal(false);
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error('Google sign-in failed:', err);
+      throw err;
     }
   };
 
@@ -438,6 +525,60 @@ export default function App() {
     }
   };
 
+  const handleForgotPassword = async (email: string) => {
+    try {
+      await sendPasswordReset(email);
+    } catch (err: any) {
+      console.error('Forgot password failed:', err);
+      throw err;
+    }
+  };
+
+  const handleVerifyResetCode = async (code: string) => {
+    try {
+      return await verifyResetCode(code);
+    } catch (err: any) {
+      console.error('Verify reset code failed:', err);
+      throw err;
+    }
+  };
+
+  const handleConfirmPasswordReset = async (code: string, newPassword: string) => {
+    try {
+      await confirmPasswordReset(code, newPassword);
+    } catch (err: any) {
+      console.error('Confirm password reset failed:', err);
+      throw err;
+    }
+  };
+
+  const handleExportData = async () => {
+    try {
+      const blob = await exportUserData();
+      // Create a download link
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `marginalia-export-${new Date().toISOString().split('T')[0]}.json`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+    } catch (err: any) {
+      console.error('Export failed:', err);
+      throw err;
+    }
+  };
+
+  const handleDeleteAccount = async (password: string) => {
+    try {
+      await deleteAccount(password);
+    } catch (err: any) {
+      console.error('Delete account failed:', err);
+      throw err;
+    }
+  };
+
   const handleLogout = async () => {
     try {
       await logout();
@@ -453,7 +594,7 @@ export default function App() {
 
   // Sync data to Firebase when user logs in for the first time
   useEffect(() => {
-    if (user && !userProfile?.createdAt) {
+    if (user && userProfile?.uid === user.uid && !userProfile.createdAt) {
       // First time login - import local data to cloud
       importLocalToCloud(
         user.uid,
@@ -477,11 +618,16 @@ export default function App() {
 
   // Show auth modal when user is not authenticated
   useEffect(() => {
-    if (!user) {
+    if (authLoading) return;
+    if (user) {
+      localStorage.removeItem('marginalia_guest_mode_v1');
+      setGuestModeEnabled(false);
+      setShowAuthModal(false);
+    } else if (!guestModeEnabled) {
       setShowAuthModal(true);
       setAuthMode('login');
     }
-  }, [user]);
+  }, [user, authLoading, guestModeEnabled]);
 
   // Log activity helper
   const logActivity = useCallback(
@@ -557,16 +703,102 @@ export default function App() {
     return sorted;
   }, [researchItems, activeCategory, searchQuery, shelfSortMode]);
 
-  // Clamp shelfIndex when filteredShelfItems changes
-  useEffect(() => {
-    if (shelfIndex >= filteredShelfItems.length && filteredShelfItems.length > 0) {
-      setShelfIndex(Math.max(0, Math.floor(filteredShelfItems.length / 2)));
-    }
-  }, [filteredShelfItems.length, shelfIndex]);
+  // Collection folders become grouped shelf volumes. Unfiled articles share one
+  // library volume, while existing monographs and research projects stay intact.
+  const filteredShelfBooks = useMemo(() => {
+    const papers = filteredShelfItems.filter(isIndividualResearchPaper);
+    if (papers.length === 0) return filteredShelfItems;
+    const otherVolumes = filteredShelfItems.filter((item) => !isIndividualResearchPaper(item));
+    const bookCollections = collections.filter((item) => !item.isSmart && item.kind !== 'area');
+    const knownCollectionIds = new Set(bookCollections.map((item) => item.id));
+    const groupedVolumes: ResearchItem[] = [];
 
-  // Safe active shelf item
-  const activeShelfItem =
-    filteredShelfItems[shelfIndex] || filteredShelfItems[0] || null;
+    const buildGroupedVolume = (id: string, title: string, groupPapers: ResearchItem[], collectionId?: string): ResearchItem => {
+      const representative = groupPapers[0];
+      const years = groupPapers.map((paper) => Number.parseInt(paper.year, 10)).filter(Number.isFinite).sort((a, b) => a - b);
+      const completedCount = groupPapers.filter((paper) => paper.readingStatus === 'completed').length;
+      return {
+        ...representative,
+        id,
+        bookPaperIds: groupPapers.map((paper) => paper.id),
+        number: `${groupPapers.length} PAPERS`,
+        title,
+        shortTitle: title,
+        authors: [`${groupPapers.length} collected ${groupPapers.length === 1 ? 'paper' : 'papers'}`],
+        year: years.length > 1 ? `${years[0]}–${years[years.length - 1]}` : years.length === 1 ? String(years[0]) : 'n.d.',
+        type: 'Collected Research Papers',
+        category: collectionId ? title.toUpperCase() : 'RESEARCH PAPERS',
+        field: 'ACADEMIC LIBRARY',
+        secondaryCategories: [],
+        collectionIds: collectionId ? [collectionId] : [],
+        tags: [],
+        topics: [],
+        methods: [],
+        abstract: '',
+        pages: undefined,
+        pageCount: undefined,
+        storagePath: undefined,
+        guestPdfId: undefined,
+        readingStatus: completedCount === groupPapers.length ? 'completed' : completedCount > 0 ? 'reading' : 'to_read',
+        readingProgress: {
+          ...representative.readingProgress,
+          currentPage: completedCount,
+          totalPages: groupPapers.length,
+          percent: Math.round((completedCount / groupPapers.length) * 100),
+        },
+      };
+    };
+
+    bookCollections.forEach((collection) => {
+      const members = papers.filter((paper) => paper.collectionIds?.find((id) => knownCollectionIds.has(id)) === collection.id);
+      const mode = collection.appearance?.sortingMode || 'custom';
+      const compareText = (a: string, b: string) => a.localeCompare(b, undefined, { sensitivity: 'base' });
+      if (mode === 'recent') members.sort((a, b) => (b.uploadedAt || '').localeCompare(a.uploadedAt || ''));
+      else if (mode === 'year') members.sort((a, b) => (Number(b.year) || 0) - (Number(a.year) || 0));
+      else if (mode === 'title') members.sort((a, b) => compareText(a.title, b.title));
+      else if (mode === 'author') members.sort((a, b) => compareText(a.authors?.[0] || '', b.authors?.[0] || ''));
+      else if (mode === 'status') members.sort((a, b) => compareText(a.readingStatus || 'inbox', b.readingStatus || 'inbox'));
+      if (!members.length) return;
+      groupedVolumes.push(buildGroupedVolume(`shelf-volume:collection:${collection.id}`, collection.name, members, collection.id));
+    });
+
+    const unfiledPapers = papers.filter((paper) => !paper.collectionIds?.some((id) => knownCollectionIds.has(id)));
+    if (unfiledPapers.length) {
+      groupedVolumes.push(buildGroupedVolume('shelf-volume:research-papers', 'Research Papers', unfiledPapers));
+    }
+
+    const firstPaperIndex = filteredShelfItems.findIndex(isIndividualResearchPaper);
+    const before = filteredShelfItems.slice(0, firstPaperIndex).filter((item) => !isIndividualResearchPaper(item));
+    const after = otherVolumes.filter((item) => !before.some((prior) => prior.id === item.id));
+    return [...before, ...groupedVolumes, ...after];
+  }, [filteredShelfItems, collections]);
+
+  // Clamp shelfIndex when filtered shelf volumes change.
+  useEffect(() => {
+    if (shelfIndex >= filteredShelfBooks.length && filteredShelfBooks.length > 0) {
+      setShelfIndex(Math.max(0, Math.floor(filteredShelfBooks.length / 2)));
+    }
+  }, [filteredShelfBooks.length, shelfIndex]);
+
+  const activeShelfBook = filteredShelfBooks[shelfIndex] || filteredShelfBooks[0] || null;
+  const activeShelfItem = activeShelfBook?.bookPaperIds
+    ? filteredShelfItems.find((paper) => paper.id === activeShelfBook.bookPaperIds?.[0]) || null
+    : activeShelfBook;
+
+  const openBookContents = useCallback((book: ResearchItem) => {
+    if (book.bookPaperIds?.length) {
+      setActiveBookPaperIds(book.bookPaperIds);
+      setActiveBookTitle(book.title);
+      setActiveBookCollectionId(book.collectionIds?.[0] || null);
+      return true;
+    }
+    return false;
+  }, []);
+
+  const handleOpenShelfBook = useCallback((book: ResearchItem) => {
+    if (!openBookContents(book)) setActiveDetailItem(book);
+  }, [openBookContents]);
+
 
   // Sound handler
   const handleToggleSound = useCallback(() => {
@@ -615,9 +847,13 @@ export default function App() {
 
   // Open paper in reader
   const handleOpenInReader = useCallback(
-    (paper: ResearchItem) => {
+    (paper: ResearchItem, readingQueue: ResearchItem[] = [paper], scopeName?: string) => {
       playSheetExpand();
       setActiveReaderPaper(paper);
+      const queue = readingQueue.some((item) => item.id === paper.id) ? readingQueue : [...readingQueue, paper];
+      setReaderQueueIds([...new Set(queue.map((item) => item.id))]);
+      setReaderScope(scopeName || null);
+      setReaderReturnView(activeView);
       setActiveView('reader');
       if (paper.readingStatus === 'inbox' || paper.readingStatus === 'to_read') {
         setResearchItems((prev) =>
@@ -626,8 +862,100 @@ export default function App() {
         logActivity('changed_status', `Started reading ${paper.title}`, paper.id, paper.title);
       }
     },
-    [logActivity]
+    [activeView, logActivity]
   );
+
+  const handleReadShelfBook = useCallback((book: ResearchItem) => {
+    if (!openBookContents(book)) handleOpenInReader(book, [book]);
+  }, [openBookContents, handleOpenInReader]);
+
+  const handleBookContentsRead = useCallback((paper: ResearchItem, readingQueue: ResearchItem[]) => {
+    setActiveBookPaperIds(null);
+    handleOpenInReader(paper, readingQueue, activeBookTitle);
+  }, [activeBookTitle, handleOpenInReader]);
+
+  const handleNavigateReaderPaper = useCallback((paper: ResearchItem) => {
+    setActiveReaderPaper(paper);
+    if (paper.readingStatus === 'inbox' || paper.readingStatus === 'to_read') {
+      setResearchItems((items) => items.map((item) => item.id === paper.id ? { ...item, readingStatus: 'reading' } : item));
+      logActivity('changed_status', `Started reading ${paper.title}`, paper.id, paper.title);
+    }
+  }, [logActivity]);
+
+  const handleAddPapersToCollection = useCallback((collectionId: string) => {
+    setImportCollectionIds([collectionId]);
+    setIsImportModalOpen(true);
+  }, []);
+
+  const handleUpdateCollectionFolders = useCallback((nextCollections: ResearchCollection[]) => {
+    const removedIds = collections.filter((collection) => !nextCollections.some((next) => next.id === collection.id)).map((collection) => collection.id);
+    setCollections(nextCollections);
+    if (user) {
+      void syncToCloud(user.uid, {
+        researchItems: [], collections: nextCollections, notes: [], highlights: [],
+        readingSessions: [], goals: [], activities: [], profiles: [], options: {},
+      });
+      removedIds.forEach((collectionId) => void deleteUserCollection(user.uid, collectionId).catch((error: unknown) => {
+        console.error('Could not remove the deleted folder from cloud storage:', error);
+      }));
+    }
+  }, [collections, deleteUserCollection, syncToCloud, user]);
+
+  const handleUpdatePaperCollections = useCallback((updatedPapers: ResearchItem[]) => {
+    const previousById = new Map(researchItems.map((paper) => [paper.id, paper]));
+    const changedMemberships = updatedPapers.filter((paper) =>
+      JSON.stringify(previousById.get(paper.id)?.collectionIds || []) !== JSON.stringify(paper.collectionIds || [])
+      || previousById.get(paper.id)?.readingStatus !== paper.readingStatus
+    );
+    setResearchItems(updatedPapers);
+    if (user && changedMemberships.length) {
+      void syncToCloud(user.uid, {
+        researchItems: changedMemberships, collections: [], notes: [], highlights: [],
+        readingSessions: [], goals: [], activities: [], profiles: [], options: {},
+      });
+    }
+  }, [researchItems, syncToCloud, user]);
+
+  const handleTogglePaperRead = useCallback((paper: ResearchItem) => {
+    const isRead = paper.readingStatus === 'completed';
+    const totalPages = paper.readingProgress?.totalPages || paper.pageCount || 0;
+    const nextPaper = {
+      ...paper,
+      readingStatus: isRead ? 'to_read' as ReadingStatus : 'completed' as ReadingStatus,
+      readingProgress: {
+        ...paper.readingProgress,
+        currentPage: isRead ? 0 : totalPages,
+        totalPages,
+        percent: isRead ? 0 : 100,
+        lastReadAt: new Date().toISOString(),
+        totalReadingTimeMinutes: paper.readingProgress?.totalReadingTimeMinutes || 0,
+      },
+    };
+    handleUpdatePaperCollections(researchItems.map((item) => item.id === paper.id ? nextPaper : item));
+    if (!isRead) logActivity('changed_status', `Marked ${paper.title} as read`, paper.id, paper.title);
+  }, [handleUpdatePaperCollections, logActivity, researchItems]);
+
+  const handleMovePaperFromBook = useCallback((paper: ResearchItem, targetCollectionId: string) => {
+    const nextIds = [targetCollectionId];
+    handleUpdatePaperCollections(researchItems.map((item) => item.id === paper.id ? { ...item, collectionIds: nextIds } : item));
+    setActiveBookPaperIds(null);
+    setCollectionsSelection(targetCollectionId);
+    setActiveView('collections');
+  }, [activeBookCollectionId, handleUpdatePaperCollections, researchItems]);
+
+  const handleAddPapersToActiveBook = useCallback(() => {
+    if (activeBookCollectionId) handleAddPapersToCollection(activeBookCollectionId);
+    else {
+      setImportCollectionIds([]);
+      setIsImportModalOpen(true);
+    }
+    setActiveBookPaperIds(null);
+  }, [activeBookCollectionId, handleAddPapersToCollection]);
+
+  const handleBookContentsDetails = useCallback((paper: ResearchItem) => {
+    setActiveBookPaperIds(null);
+    setActiveDetailItem(paper);
+  }, []);
 
   // Inquire paper in AI Assistant
   const handleAskAiAboutPaper = useCallback(() => {
@@ -664,20 +992,96 @@ export default function App() {
 
   // Import papers from Ingestion Studio
   const handleImportPapers = useCallback(
-    (newPapers: ResearchItem[]) => {
+    (newPapers: ResearchItem[], destination: ImportDestination) => {
+      const nextCollections = [...collections];
+      let areaId = destination.areaId;
+      if (destination.newAreaName?.trim()) {
+        const existingArea = nextCollections.find((collection) => collection.kind === 'area' && collection.name.trim().toLocaleLowerCase() === destination.newAreaName?.trim().toLocaleLowerCase());
+        areaId = existingArea?.id || `area-${crypto.randomUUID()}`;
+        if (!existingArea) nextCollections.push({ id: areaId, name: destination.newAreaName.trim(), kind: 'area', color: '#1F3FB0' });
+      }
+
+      let bookId = destination.bookId;
+      if (destination.newBookName?.trim()) {
+        const existingBook = nextCollections.find((collection) => collection.kind !== 'area' && !collection.isSmart && collection.parentId === areaId && collection.name.trim().toLocaleLowerCase() === destination.newBookName?.trim().toLocaleLowerCase());
+        bookId = existingBook?.id || `book-${crypto.randomUUID()}`;
+        if (!existingBook) nextCollections.push({ id: bookId, name: destination.newBookName.trim(), kind: 'book', ...(areaId ? { parentId: areaId } : {}), color: '#1F3FB0' });
+      }
+      if (!bookId || !nextCollections.some((collection) => collection.id === bookId && collection.kind !== 'area' && !collection.isSmart)) return;
+
+      const filedPapers = newPapers.map((paper) => ({ ...paper, collectionIds: [bookId as string] }));
+      if (nextCollections.length !== collections.length) setCollections(nextCollections);
       playPaperRustle();
-      setResearchItems((prev) => [...newPapers, ...prev]);
+      setResearchItems((prev) => [...filedPapers, ...prev]);
       logActivity(
         'imported',
-        `Imported ${newPapers.length} new academic papers into library`,
-        newPapers[0]?.id,
-        newPapers[0]?.title
+        `Imported ${filedPapers.length} papers into ${nextCollections.find((collection) => collection.id === bookId)?.name || 'a book'}`,
+        filedPapers[0]?.id,
+        filedPapers[0]?.title
       );
       setShelfIndex(0);
-      setActiveView('shelf');
+      setCollectionsSelection(bookId);
+      setActiveView('collections');
+      if (user) {
+        void syncToCloud(user.uid, {
+          researchItems: filedPapers,
+          collections: nextCollections,
+          notes: [],
+          highlights: [],
+          readingSessions: [],
+          goals: [],
+          activities: [],
+          profiles: [],
+          options: {},
+        });
+      }
     },
-    [logActivity]
+    [collections, logActivity, syncToCloud, user]
   );
+
+  const handleStorePdf = useCallback(async (file: File): Promise<PdfDocumentReference> => {
+    const reference: PdfDocumentReference = {
+      fileName: file.name,
+      fileSize: file.size,
+      mimeType: 'application/pdf',
+      uploadedAt: new Date().toISOString(),
+    };
+
+    if (user) {
+      reference.storagePath = await uploadPdf(user.uid, file);
+    } else {
+      reference.guestPdfId = await storeGuestPdfFile(file);
+    }
+    return reference;
+  }, [uploadPdf, user]);
+
+  const handleAttachPdfToActivePaper = useCallback(async (file: File): Promise<void> => {
+    const targetPaper = activeReaderPaper || researchItems[0];
+    if (!targetPaper) throw new Error('No library paper is selected.');
+
+    const reference: PdfDocumentReference = {
+      fileName: file.name,
+      fileSize: file.size,
+      mimeType: 'application/pdf',
+      uploadedAt: new Date().toISOString(),
+    };
+    if (user) reference.storagePath = await uploadPdf(user.uid, file);
+    else reference.guestPdfId = await storeGuestPdfFile(file);
+
+    const updatedPaper: ResearchItem = {
+      ...targetPaper,
+      ...reference,
+      pdfFileName: file.name,
+      ...(user ? { guestPdfId: undefined } : {}),
+    };
+    if (user && updatedPaper.storagePath) {
+      await persistPaperPdfAttachment(user.uid, updatedPaper);
+    }
+
+    setResearchItems((items) => items.map((item) => item.id === updatedPaper.id ? updatedPaper : item));
+    setActiveReaderPaper(updatedPaper);
+    setActiveDetailItem((current) => current?.id === updatedPaper.id ? updatedPaper : current);
+  }, [activeReaderPaper, researchItems, user, uploadPdf, persistPaperPdfAttachment]);
 
   // Save / Update Note
   const handleSaveNote = useCallback(
@@ -720,20 +1124,21 @@ export default function App() {
 
   // Update Reading Progress
   const handleUpdateReadingProgress = useCallback(
-    (paperId: string, page: number, percent: number) => {
+    (paperId: string, page: number, percent: number, totalPages: number) => {
       setResearchItems((prev) =>
         prev.map((p) => {
           if (p.id !== paperId) return p;
           const isDone = percent >= 98;
           return {
             ...p,
+            pageCount: totalPages,
             readingStatus: isDone ? 'completed' : p.readingStatus,
             readingProgress: {
               ...p.readingProgress,
               currentPage: page,
+              totalPages,
               percent,
               lastReadAt: new Date().toISOString(),
-              totalReadingTimeMinutes: (p.readingProgress.totalReadingTimeMinutes || 0) + 1,
             },
           };
         })
@@ -744,31 +1149,61 @@ export default function App() {
 
   // Article authoring/edit actions
   const handleSaveArticle = useCallback(
-    (savedItem: ResearchItem) => {
+    (savedItem: ResearchItem, destination?: ImportDestination) => {
+      const exists = researchItems.some((item) => item.id === savedItem.id);
+      let itemToSave = savedItem;
+      let nextCollections = collections;
+      if (!exists) {
+        if (!destination) return;
+        nextCollections = [...collections];
+        let areaId = destination.areaId;
+        if (destination.newAreaName?.trim()) {
+          const area = nextCollections.find((collection) => collection.kind === 'area' && collection.name.trim().toLocaleLowerCase() === destination.newAreaName?.trim().toLocaleLowerCase());
+          areaId = area?.id || `area-${crypto.randomUUID()}`;
+          if (!area) nextCollections.push({ id: areaId, name: destination.newAreaName.trim(), kind: 'area', color: '#1F3FB0' });
+        }
+        let bookId = destination.bookId;
+        if (destination.newBookName?.trim()) {
+          const book = nextCollections.find((collection) => collection.kind !== 'area' && !collection.isSmart && collection.parentId === areaId && collection.name.trim().toLocaleLowerCase() === destination.newBookName?.trim().toLocaleLowerCase());
+          bookId = book?.id || `book-${crypto.randomUUID()}`;
+          if (!book) nextCollections.push({ id: bookId, name: destination.newBookName.trim(), kind: 'book', ...(areaId ? { parentId: areaId } : {}), color: '#1F3FB0' });
+        }
+        if (!bookId || !nextCollections.some((collection) => collection.id === bookId && collection.kind !== 'area' && !collection.isSmart)) return;
+        itemToSave = { ...savedItem, collectionIds: [bookId] };
+        if (nextCollections.length !== collections.length) setCollections(nextCollections);
+        setCollectionsSelection(bookId);
+        setActiveView('collections');
+        if (user) {
+          void syncToCloud(user.uid, {
+            researchItems: [itemToSave], collections: nextCollections, notes: [], highlights: [],
+            readingSessions: [], goals: [], activities: [], profiles: [], options: {},
+          });
+        }
+      }
       setResearchItems((prev) => {
-        const existsIndex = prev.findIndex((x) => x.id === savedItem.id);
+        const existsIndex = prev.findIndex((x) => x.id === itemToSave.id);
         if (existsIndex >= 0) {
           const next = [...prev];
-          next[existsIndex] = savedItem;
+          next[existsIndex] = itemToSave;
           return next;
         }
-        return [savedItem, ...prev];
+        return [itemToSave, ...prev];
       });
 
       setActiveDetailItem((current) =>
-        current && current.id === savedItem.id ? savedItem : current
+        current && current.id === itemToSave.id ? itemToSave : current
       );
 
       setCategories((prev) => {
-        if (!prev.some((c) => c.id === savedItem.category)) {
-          return [...prev, { id: savedItem.category, label: savedItem.category, isCustom: true }];
+        if (!prev.some((c) => c.id === itemToSave.category)) {
+          return [...prev, { id: itemToSave.category, label: itemToSave.category, isCustom: true }];
         }
         return prev;
       });
 
-      logActivity('added_paper', `Saved publication record "${savedItem.title}"`, savedItem.id, savedItem.title);
+      logActivity('added_paper', `Saved publication record "${itemToSave.title}"`, itemToSave.id, itemToSave.title);
     },
-    [logActivity]
+    [collections, logActivity, researchItems, syncToCloud, user]
   );
 
   const handleDeleteArticle = useCallback((itemId: string) => {
@@ -777,26 +1212,36 @@ export default function App() {
     setActiveDetailItem((curr) => (curr?.id === itemId ? null : curr));
   }, []);
 
-  // Reset to default dataset
-  const handleResetToDefaults = useCallback(() => {
+  // Clear saved library content while preserving sign-in and personal preferences.
+  const handleClearContent = useCallback(async () => {
     playTactileClick();
-    setResearchItems(buildInitialOrderedItems());
-    setCollections(INITIAL_COLLECTIONS);
-    setNotes(INITIAL_NOTES);
-    setHighlights(INITIAL_HIGHLIGHTS);
-    setReadingSessions(INITIAL_READING_SESSIONS);
-    setGoals(INITIAL_GOALS);
-    setActivities(INITIAL_ACTIVITY_LOGS);
+    if (user) await clearUserContent(user.uid);
+    await clearGuestPdfFiles();
+
+    const emptyKeys = [
+      'academic_archive_items_v3', 'academic_archive_collections_v2',
+      'academic_archive_notes_v2', 'academic_archive_highlights_v2',
+      'academic_archive_sessions_v2', 'academic_archive_goals_v2',
+      'academic_archive_activities_v2',
+    ];
+    for (const key of emptyKeys) localStorage.setItem(key, '[]');
+    localStorage.removeItem('academic_archive_items_v2');
+    localStorage.removeItem('academic_archive_categories_v2');
+
+    setResearchItems([]);
+    setCollections([]);
+    setNotes([]);
+    setHighlights([]);
+    setReadingSessions([]);
+    setGoals([]);
+    setActivities([]);
     setCategories(INITIAL_CATEGORIES);
-    // Profile reset handled by Firebase logout/login cycle
-    setShelfMaterial('walnut');
-    setShelfSortMode('custom');
-    setCategoryAppearances(DEFAULT_CATEGORY_APPEARANCES);
-    setShelfIndex(7);
-    try {
-      localStorage.clear();
-    } catch {}
-  }, []);
+    setActiveCategory('ALL');
+    setSearchQuery('');
+    setActiveReaderPaper(null);
+    setActiveDetailItem(null);
+    setShelfIndex(0);
+  }, [clearUserContent, user]);
 
   // Global Keyboard Navigation on Bookshelf
   useEffect(() => {
@@ -813,6 +1258,7 @@ export default function App() {
 
       const anyModalOpen =
         activeDetailItem ||
+        activeBookPaperIds ||
         isAboutOpen ||
         isMethodologyOpen ||
         isArticleEditorOpen ||
@@ -829,18 +1275,19 @@ export default function App() {
         }
       } else if (e.key === 'ArrowRight' && !anyModalOpen) {
         e.preventDefault();
-        if (shelfIndex < filteredShelfItems.length - 1) {
+        if (shelfIndex < filteredShelfBooks.length - 1) {
           playPaperRustle();
           setShelfIndex((prev) => prev + 1);
         }
       } else if ((e.key === 'Enter' || e.key === ' ') && !anyModalOpen) {
         e.preventDefault();
-        if (activeShelfItem) {
+        if (activeShelfBook) {
           playSheetExpand();
-          setActiveDetailItem(activeShelfItem);
+          handleOpenShelfBook(activeShelfBook);
         }
       } else if (e.key === 'Escape') {
         if (activeDetailItem) setActiveDetailItem(null);
+        if (activeBookPaperIds) setActiveBookPaperIds(null);
         if (isAboutOpen) setIsAboutOpen(false);
         if (isMethodologyOpen) setIsMethodologyOpen(false);
         if (isArticleEditorOpen) setIsArticleEditorOpen(false);
@@ -856,8 +1303,10 @@ export default function App() {
   }, [
     activeView,
     shelfIndex,
-    filteredShelfItems.length,
-    activeShelfItem,
+    filteredShelfBooks.length,
+    activeShelfBook,
+    activeBookPaperIds,
+    handleOpenShelfBook,
     activeDetailItem,
     isAboutOpen,
     isMethodologyOpen,
@@ -876,13 +1325,28 @@ export default function App() {
   return (
     <>
     {/* Auth Modal - shown when user is not authenticated */}
+    <AccountSettingsModal
+        isOpen={isAccountSettingsOpen}
+        onClose={() => setIsAccountSettingsOpen(false)}
+        onExportData={handleExportData}
+        onDeleteAccount={handleDeleteAccount}
+      />
+
     {!user && (
       <AuthModal
         isOpen={showAuthModal}
         onClose={() => setShowAuthModal(false)}
+        onContinueAsGuest={() => {
+          localStorage.setItem('marginalia_guest_mode_v1', 'true');
+          setGuestModeEnabled(true);
+          setShowAuthModal(false);
+        }}
         onSignInWithGoogle={handleSignInWithGoogle}
         onSignIn={handleSignIn}
         onSignUp={handleSignUp}
+        onForgotPassword={handleForgotPassword}
+        onVerifyResetCode={handleVerifyResetCode}
+        onConfirmPasswordReset={handleConfirmPasswordReset}
         defaultMode={authMode}
       />
     )}
@@ -939,21 +1403,18 @@ export default function App() {
         readingNowCount={readingNowCount}
         totalNotesCount={notes.length}
         isGuest={!user}
-        onMigrateGuest={() => {
-          playTactileClick();
-          if (!user) alert("Create an account to save your library across devices!");
-        }}
         onOpenProfile={() => {
           playTactileClick();
-          setIsProfileOpen(true);
+          if (!user) {
+            setAuthMode('login');
+            setShowAuthModal(true);
+          } else {
+            setIsAboutOpen(true);
+          }
         }}
-        onOpenSettings={() => {
+        onOpenAccountSettings={() => {
           playTactileClick();
-          setIsSettingsOpen(true);
-        }}
-        onOpenApiKeys={() => {
-          playTactileClick();
-          setShowApiKeyPrompt(true);
+          setIsAccountSettingsOpen(true);
         }}
       />
 
@@ -1007,21 +1468,33 @@ export default function App() {
 
             {/* Central 3D Physical Vintage Bookshelf */}
             <div className="flex-1 flex flex-col justify-center my-auto">
+              {filteredShelfBooks.length === 0 ? (
+                <section className="mx-auto my-12 max-w-lg border border-[#141414]/15 bg-[#F4F2ED] p-8 text-center shadow-sm" aria-label="Empty library">
+                  <BookOpen className="mx-auto mb-3 h-8 w-8 text-[#1F3FB0]" />
+                  <h2 className="font-serif text-2xl text-[#141414]">Your library is empty</h2>
+                  <p className="mt-2 font-mono text-xs leading-relaxed text-[#77736B]">Import article details or attach a PDF to start your collection.</p>
+                  <div className="mt-5 flex flex-wrap justify-center gap-2">
+                    <button type="button" onClick={() => setIsImportModalOpen(true)} className="bg-[#141414] px-4 py-2 font-mono text-xs uppercase text-white hover:bg-[#1F3FB0]">Add Papers</button>
+                    {researchItems.length > 0 && <button type="button" onClick={() => setActiveCategory('ALL')} className="border border-[#141414]/25 bg-white px-4 py-2 font-mono text-xs uppercase">Show all papers</button>}
+                  </div>
+                </section>
+              ) : <>
               <ShelfArchive
-                items={filteredShelfItems}
-                allItems={researchItems}
+                items={filteredShelfBooks}
                 activeIndex={shelfIndex}
                 onSelectIndex={(idx) => {
                   setShelfIndex(idx);
                 }}
                 onOpenDetail={(item) => {
                   playSheetExpand();
-                  setActiveDetailItem(item);
+                  handleOpenShelfBook(item);
                 }}
-                onReadPaper={handleOpenInReader}
+                onReadPaper={handleReadShelfBook}
                 onCustomizeBook={(item) => {
                   playTactileClick();
-                  setCustomizerTargetBook(item);
+                  setCustomizerTargetBook(item.bookPaperIds?.[0]
+                    ? researchItems.find((paper) => paper.id === item.bookPaperIds?.[0]) || null
+                    : item);
                   setIsCustomizerOpen(true);
                 }}
                 shelfMaterial={shelfMaterial}
@@ -1031,28 +1504,31 @@ export default function App() {
 
               {/* Research Caption under Wooden Shelf */}
               <ResearchCaption
-                item={activeShelfItem}
+                item={activeShelfBook}
                 currentIndex={shelfIndex}
-                totalItems={filteredShelfItems.length}
+                totalItems={filteredShelfBooks.length}
                 onPrev={() => setShelfIndex((prev) => Math.max(0, prev - 1))}
                 onNext={() =>
                   setShelfIndex((prev) =>
-                    Math.min(filteredShelfItems.length - 1, prev + 1)
+                    Math.min(filteredShelfBooks.length - 1, prev + 1)
                   )
                 }
                 onSelectIndex={(idx) => setShelfIndex(idx)}
                 onOpen={(item) => {
                   playSheetExpand();
-                  setActiveDetailItem(item);
+                  handleOpenShelfBook(item);
                 }}
-                onReadPaper={handleOpenInReader}
+                onReadPaper={handleReadShelfBook}
                 onAskAi={handleAskAiAboutPaper}
                 onCustomizeBook={(item) => {
                   playTactileClick();
-                  setCustomizerTargetBook(item);
+                  setCustomizerTargetBook(item.bookPaperIds?.[0]
+                    ? researchItems.find((paper) => paper.id === item.bookPaperIds?.[0]) || null
+                    : item);
                   setIsCustomizerOpen(true);
                 }}
               />
+              </>}
             </div>
           </main>
         )}
@@ -1115,17 +1591,38 @@ export default function App() {
           </div>
         )}
 
+        {activeBookPaperIds && (
+          <BookContentsModal
+            bookTitle={activeBookTitle}
+            collectionId={activeBookCollectionId}
+            collections={collections}
+            papers={activeBookPaperIds
+              .map((id) => researchItems.find((paper) => paper.id === id))
+              .filter((paper): paper is ResearchItem => Boolean(paper))}
+            onClose={() => setActiveBookPaperIds(null)}
+            onAddPapers={handleAddPapersToActiveBook}
+            onMovePaper={handleMovePaperFromBook}
+            onToggleRead={handleTogglePaperRead}
+            onReadPaper={handleBookContentsRead}
+            onOpenDossier={handleBookContentsDetails}
+          />
+        )}
+
         {/* 3. DEDICATED ACADEMIC READER */}
         {activeView === 'reader' && (
           <DedicatedReader
             paper={activeReaderPaper || researchItems[0] || null}
-            onClose={() => setActiveView('shelf')}
+            readingQueue={readerQueueIds.map((id) => researchItems.find((paper) => paper.id === id)).filter((paper): paper is ResearchItem => Boolean(paper))}
+            readingScope={readerScope}
+            onNavigatePaper={handleNavigateReaderPaper}
+            onClose={() => setActiveView(readerReturnView)}
             highlights={highlights.filter(
               (h) => h.paperId === (activeReaderPaper?.id || researchItems[0]?.id)
             )}
             onAddHighlight={handleAddHighlight}
             onDeleteHighlight={handleDeleteHighlight}
-            onUpdateReadingProgress={handleUpdateReadingProgress}
+        onUpdateReadingProgress={handleUpdateReadingProgress}
+            onAttachPdf={handleAttachPdfToActivePaper}
           />
         )}
 
@@ -1165,14 +1662,32 @@ export default function App() {
         {/* 6. AI RESEARCH ASSISTANT (Ask Your Library) */}
         {activeView === 'assistant' && (
           <div className="flex-1 animate-fadeIn">
-            <AiAssistantView
-              papers={researchItems}
-              onOpenPaperInReader={handleOpenInReader}
-              onOpenPaperDetail={(paper) => {
-                playSheetExpand();
-                setActiveDetailItem(paper);
-              }}
-            />
+            {geminiConfigured === true ? (
+              <AiAssistantView
+                onShowApiKeyPrompt={() => setShowApiKeyPrompt(true)}
+                papers={researchItems}
+                onOpenPaperInReader={handleOpenInReader}
+                onOpenPaperDetail={(paper) => {
+                  playSheetExpand();
+                  setActiveDetailItem(paper);
+                }}
+              />
+            ) : (
+              <section className="mx-auto mt-16 max-w-2xl border border-[#141414]/15 bg-[#F4F1EA] p-8 text-center shadow-sm">
+                <p className="font-mono text-xs uppercase tracking-[0.2em] text-[#1F3FB0]">Optional feature</p>
+                <h1 className="mt-3 font-serif text-3xl text-[#141414]">AI Research Assistant is locked</h1>
+                <p className="mx-auto mt-4 max-w-xl text-sm leading-6 text-[#4A433B]">
+                  Add your Gemini API key to enable research questions and literature synthesis. Without a key, the AI workspace stays unavailable and the rest of Marginalia continues to work.
+                </p>
+                <button
+                  type="button"
+                  onClick={() => setShowApiKeyPrompt(true)}
+                  className="mt-6 border border-[#1F3FB0] bg-[#1F3FB0] px-5 py-3 font-mono text-xs uppercase tracking-wider text-white hover:bg-[#18338f]"
+                >
+                  Configure AI access
+                </button>
+              </section>
+            )}
           </div>
         )}
 
@@ -1196,18 +1711,20 @@ export default function App() {
             <CollectionsView
               papers={researchItems}
               collections={collections}
+              initialSelectedCollectionId={collectionsSelection}
+              onSelectedCollectionChange={setCollectionsSelection}
               onUpdateCollections={(cols) => {
                 playTactileClick();
-                setCollections(cols);
+                handleUpdateCollectionFolders(cols);
               }}
-              onUpdatePapers={(updatedPapers) => {
-                setResearchItems(updatedPapers);
-              }}
+              onUpdatePapers={handleUpdatePaperCollections}
+              onTogglePaperRead={handleTogglePaperRead}
               onOpenPaperInReader={handleOpenInReader}
               onOpenPaperDetail={(paper) => {
                 playSheetExpand();
                 setActiveDetailItem(paper);
               }}
+              onAddPapersToCollection={handleAddPapersToCollection}
             />
           </div>
         )}
@@ -1290,7 +1807,15 @@ export default function App() {
       {/* MODALS & WORKSPACES */}
 
       {/* API Key Prompt for AI Features */}
-      <ApiKeyPrompt onDismiss={() => setShowApiKeyPrompt(false)} />
+      {showApiKeyPrompt && (
+        <ApiKeyPrompt
+          onDismiss={() => setShowApiKeyPrompt(false)}
+          onConfigured={() => {
+            setGeminiConfigured(true);
+            setShowApiKeyPrompt(false);
+          }}
+        />
+      )}
 
       {/* Onboarding Modal */}
       {isOnboardingOpen && (
@@ -1320,10 +1845,13 @@ export default function App() {
       {/* 1. Dedicated Ingestion Studio (DOI Crossref, PDF, BibTeX, RIS, CSV) */}
       <DedicatedImportModal
         isOpen={isImportModalOpen}
-        onClose={() => setIsImportModalOpen(false)}
+        onClose={() => { setIsImportModalOpen(false); setImportCollectionIds([]); }}
         existingPapers={researchItems}
         onImportPapers={handleImportPapers}
+        onStorePdf={handleStorePdf}
         categories={categories}
+        collections={collections}
+        defaultCollectionIds={importCollectionIds}
       />
 
       {/* 2. Immersive Paper-like Detail Sheet Modal with Scroll Progress Bar */}
@@ -1369,6 +1897,8 @@ export default function App() {
           isOpen={isArticleEditorOpen}
           initialItem={editingItem}
           categories={categories}
+          collections={collections}
+          defaultBookId={collections.some((collection) => collection.id === collectionsSelection && collection.kind !== 'area' && !collection.isSmart) ? collectionsSelection : undefined}
           onClose={() => {
             setIsArticleEditorOpen(false);
             setEditingItem(null);
@@ -1432,7 +1962,7 @@ export default function App() {
             if (imported.categories) setCategories(imported.categories);
             if (imported.profile) setProfile(imported.profile);
           }}
-          onResetToDefaults={handleResetToDefaults}
+          onClearContent={handleClearContent}
         />
       )}
     </div>

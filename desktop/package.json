@@ -1,0 +1,78 @@
+{
+  "name": "marginalia-desktop",
+  "productName": "Marginalia",
+  "version": "1.0.9",
+  "private": true,
+  "description": "Marginalia Academic Knowledge Companion",
+  "main": "main.cjs",
+  "scripts": {
+    "start": "electron .",
+    "build:windows": "node ../scripts/build-windows.mjs"
+  },
+  "dependencies": {
+    "@google/genai": "^2.4.0",
+    "express": "^4.21.2",
+    "firebase-tools": "15.34.2"
+  },
+  "devDependencies": {
+    "electron": "45.2.3",
+    "electron-builder": "26.18.0"
+  },
+  "build": {
+    "appId": "org.marginalia.academiccompanion",
+    "productName": "Marginalia",
+    "asar": true,
+    "directories": {
+      "output": "../artifacts/windows"
+    },
+    "files": [
+      "main.cjs",
+      "preload.cjs",
+      "backend.cjs",
+      "package.json"
+    ],
+    "extraResources": [
+      {
+        "from": "../dist",
+        "to": "dist"
+      },
+      {
+        "from": "../firebase.json",
+        "to": "firebase/firebase.json"
+      },
+      {
+        "from": "../firestore-emulator.rules",
+        "to": "firebase/firestore-emulator.rules"
+      },
+      {
+        "from": "../storage-emulator.rules",
+        "to": "firebase/storage-emulator.rules"
+      },
+      {
+        "from": "../firestore.indexes.json",
+        "to": "firebase/firestore.indexes.json"
+      },
+      {
+        "from": "build-runtime/java-compact",
+        "to": "runtime/java"
+      },
+      {
+        "from": "build-runtime/firebase-emulators",
+        "to": "firebase-emulators"
+      }
+    ],
+    "win": {
+      "target": [
+        "nsis"
+      ],
+      "artifactName": "Marginalia-Setup-${version}-${arch}.${ext}"
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true,
+      "shortcutName": "Marginalia"
+    }
+  }
+}

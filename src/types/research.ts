@@ -141,6 +141,8 @@ export interface ResearchNote {
 export interface ResearchCollection {
   id: string;
   name: string;
+  /** Areas group books; legacy collections without this field remain books. */
+  kind?: 'area' | 'book';
   description?: string;
   color?: string;
   parentId?: string;
@@ -154,6 +156,13 @@ export interface ResearchCollection {
     tag?: string;
     priority?: PriorityLevel;
   };
+}
+
+export interface ImportDestination {
+  areaId?: string;
+  bookId?: string;
+  newAreaName?: string;
+  newBookName?: string;
 }
 
 export interface ReadingGoal {
@@ -214,6 +223,8 @@ export type ResearchCategory = string;
 
 export interface ResearchItem {
   id: string;
+  /** Transient grouping used by the physical shelf; this field is never saved on paper records. */
+  bookPaperIds?: string[];
   number: string;
   title: string;
   shortTitle: string;
@@ -226,7 +237,13 @@ export interface ResearchItem {
   publisher?: string;
   doi?: string;
   url?: string;
-  pdfUrl?: string;
+  storagePath?: string;
+  /** IndexedDB key used for PDFs imported while the user is in guest mode. */
+  guestPdfId?: string;
+  fileName?: string;
+  fileSize?: number;
+  mimeType?: string;
+  uploadedAt?: string;
   pdfFileName?: string;
   pdfContentText?: string;
   extractedText?: string;

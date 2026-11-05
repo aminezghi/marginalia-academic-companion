@@ -1,73 +1,101 @@
 rules_version = '2';
-service cloud.storage {
+service firebase.storage {
   match /b/{bucket}/o {
     
     // =========================================================================
-    // USER PDFS
-    // Path: pdfs/{uid}/{timestamp}_{uuid}_{originalName}.pdf
-    // Storage path format: timestamp (13 digits)_uuid (8 hex chars)_originalName.pdf
-    // Example: 1700000000000_abc12345_paper-title.pdf
+    // HELPER FUNCTIONS (must be defined before use)
     // =========================================================================
+    function isPdfOwner(uid) {
+      return request.auth != null && request.auth.uid == uid;
+    }
+    
+    function isValidPdfFilename(name) {
+      return name is string
+        ? name.matches('^\\d{13}_[a-fA-F0-9]{8}_[a-zA-Z0-9_-]+\\.pdf$')
+          && name.matches('.*\\.pdf$')
+        : false;
+    }
+    
+    function isValidPdfOperation(fileName) {
+      // DELETE operation: request.resource is null, just validate filename
+      // CREATE/UPDATE: validate content type, size, and filename
+      return (request.resource == null && isValidPdfFilename(fileName))
+             || (request.resource.contentType == 'application/pdf'
+                 && request.resource.size > 0
+                 && request.resource.size <= 100 * 1024 * 1024
+                 && isValidPdfFilename(fileName));
+    }
+    
+    function isValidAvatarOperation() {
+      // DELETE operation: request.resource is null, allows deletion
+      // CREATE/UPDATE: validate content type, size
+      return (request.resource == null)
+             || (request.resource.contentType == 'image/png'
+                 && request.resource.size > 0
+                 && request.resource.size <= 2 * 1024 * 1024);
+    }
+    
+    function isValidCoverFilename(name) {
+      return name.matches('.*\\.(jpg|jpeg)$');
+    }
+    
+    function isValidCoverOperation(fileName) {
+      // DELETE operation: request.resource is null, just validate filename
+      // CREATE/UPDATE: validate content type, size, and filename
+      return (request.resource == null && isValidCoverFilename(fileName))
+             || (request.resource.contentType == 'image/jpeg'
+                 && request.resource.size > 0
+                 && request.resource.size <= 5 * 1024 * 1024
+                 && isValidCoverFilename(fileName));
+    }
+    
+    // =========================================================================
+    // USER PDFS - Private, Owner-Only Access
+    // =========================================================================
+    match /pdfs/{uid} {
+      // Allow the owner to enumerate their own PDF objects for complete reset.
+      allow read: if isPdfOwner(uid);
+    }
+
     match /pdfs/{uid}/{fileName} {
       // READ: Only authenticated owner can read
-      allow read: if request.auth != null 
-                    && request.auth.uid == uid
-                    && isValidFilename(fileName)
-                    && isValidPdfExtension(fileName);
+      allow read: if isPdfOwner(uid);
       
-      // WRITE: Only authenticated owner can write valid PDFs
-      allow write: if request.auth != null 
-                   && request.auth.uid == uid
-                   && request.resource.contentType == 'application/pdf'
-                   && request.resource.size > 0
-                   && request.resource.size <= 100 * 1024 * 1024  // 100MB max
-                   && isValidFilename(fileName)
-                   && isValidPdfExtension(fileName);
-      
-      // Helper function: validate filename pattern (timestamp_uuid_name.pdf)
-      function isValidFilename(name) {
-        // Must match: 13 digit timestamp + underscore + 8 hex UUID + underscore + safe name + .pdf
-        return name.matches('^\\d{13}_[a-fA-F0-9]{8}_[a-zA-Z0-9_-]+\\.pdf$');
-      }
-      
-      // Helper function: ensure extension is .pdf
-      function isValidPdfExtension(name) {
-        return name.matches('.*\\.pdf$');
-      }
+      // WRITE: Includes create, overwrite, delete - owner only
+      allow write: if isPdfOwner(uid)
+                   && isValidPdfOperation(fileName);
     }
     
     // =========================================================================
-    // USER AVATARS (future use)
-    // Path: avatars/{userId}.png
+    // USER AVATARS - Public Read, Owner-Only Write/Delete
     // =========================================================================
-    match /avatars/{userId}.png {
-      allow read: if true;  // Public read for profile display
-      
-      allow write: if request.auth != null 
-                   && request.auth.uid == userId
-                   && request.resource.contentType == 'image/png'
-                   && request.resource.size > 0
-                   && request.resource.size <= 2 * 1024 * 1024;  // 2MB max
-    }
-    
-    // =========================================================================
-    // VOLUME COVERS (future use)
-    // Path: covers/{userId}/{volumeId}.jpg
-    // =========================================================================
-    match /covers/{userId}/{volumeId}.jpg {
+    match /avatars/{uid}/avatar.png {
       allow read: if true;  // Public read
       
       allow write: if request.auth != null 
-                   && request.auth.uid == userId
-                   && request.resource.contentType == 'image/jpeg'
-                   && request.resource.size > 0
-                   && request.resource.size <= 5 * 1024 * 1024;  // 5MB max
+                   && request.auth.uid == uid
+                   && isValidAvatarOperation();
     }
     
     // =========================================================================
-    // DENY ALL OTHER PATHS - DEFAULT DENY
+    // VOLUME COVERS - Private, Owner-Only Access
     // =========================================================================
-    match /{all=**} {
+    match /covers/{userId}/{fileName} {
+      // READ: Only authenticated owner can read
+      allow read: if request.auth != null 
+                   && request.auth.uid == userId
+                   && isValidCoverFilename(fileName);
+      
+      // WRITE: Includes create, overwrite, delete - owner only with validation
+      allow write: if request.auth != null 
+                   && request.auth.uid == userId
+                   && isValidCoverOperation(fileName);
+    }
+    
+    // =========================================================================
+    // DEFAULT DENY - All other paths denied
+    // =========================================================================
+    match /{allPaths=**} {
       allow read, write: if false;
     }
   }

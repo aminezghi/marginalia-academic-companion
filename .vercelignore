@@ -1,0 +1,31 @@
+# Local app packages and build output are not part of the hosted website.
+artifacts/
+desktop/
+dist/
+node_modules/
+
+# Development-only diagnostics, test output, and agent skills.
+diagnostics/
+playwright-report/
+test-results/
+coverage/
+stderr/
+.agents/
+tests/
+debug-storage*.cjs
+test_*.cjs
+test_*.js
+test-emulator-check.*
+firestore-debug.log
+storage-debug.log
+
+# Local secrets and Vercel link state are never uploaded.
+.env*
+!.env.example
+.vercel/
+.git/
+
+# macOS transfer sidecars and backup files.
+._*
+*.bak
+*.backup*

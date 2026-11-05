@@ -1,4 +1,17 @@
 {
+  "auth": {
+    "providers": {
+      "emailPassword": true,
+      "googleSignIn": {
+        "oAuthBrandDisplayName": "Marginalia-Academia",
+        "supportEmail": "azouaghiamine@gmail.com",
+        "authorizedRedirectUris": [
+          "https://marginalia-academia.firebaseapp.com/__/auth/handler",
+          "https://marginalia-academic-knowledge-compa.vercel.app/__/auth/handler"
+        ]
+      }
+    }
+  },
   "firestore": {
     "rules": "firestore-emulator.rules",
     "indexes": "firestore.indexes.json"
@@ -8,13 +21,16 @@
   },
   "emulators": {
     "firestore": {
-      "port": 8080
+      "port": 8080,
+      "host": "127.0.0.1"
     },
     "storage": {
-      "port": 9199
+      "port": 9199,
+      "host": "127.0.0.1"
     },
     "auth": {
-      "port": 9099
+      "port": 9099,
+      "host": "127.0.0.1"
     },
     "ui": {
       "enabled": true

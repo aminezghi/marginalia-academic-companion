@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { ResearchItem, CategoryDefinition } from '../types/research';
+import { ResearchItem, CategoryDefinition, ResearchCollection, ImportDestination } from '../types/research';
 import { PhysicalCover } from './PhysicalCover';
 import { X, Plus, Trash2, Check, Sparkles, BookOpen } from 'lucide-react';
 import { playTactileClick } from '../utils/sound';
@@ -7,9 +7,11 @@ import { playTactileClick } from '../utils/sound';
 interface ArticleEditorModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onSave: (item: ResearchItem) => void;
+  onSave: (item: ResearchItem, destination?: ImportDestination) => void;
   initialItem?: ResearchItem | null;
   categories: CategoryDefinition[];
+  collections: ResearchCollection[];
+  defaultBookId?: string;
   onAddNewCategory?: (catName: string) => void;
 }
 
@@ -39,6 +41,8 @@ export const ArticleEditorModal: React.FC<ArticleEditorModalProps> = ({
   onSave,
   initialItem,
   categories,
+  collections,
+  defaultBookId,
   onAddNewCategory,
 }) => {
   const isEditing = !!initialItem;
@@ -65,9 +69,28 @@ export const ArticleEditorModal: React.FC<ArticleEditorModalProps> = ({
   const [spineAccent, setSpineAccent] = useState('#1F3FB0');
   const [selectedPalette, setSelectedPalette] = useState(PALETTE_OPTIONS[0]);
   const [motif, setMotif] = useState<(typeof MOTIF_OPTIONS)[number]['id']>('bibliometric-network');
+  const [destinationAreaId, setDestinationAreaId] = useState('');
+  const [destinationBookId, setDestinationBookId] = useState('');
+  const [createNewArea, setCreateNewArea] = useState(false);
+  const [createNewBook, setCreateNewBook] = useState(false);
+  const [newAreaName, setNewAreaName] = useState('');
+  const [newBookName, setNewBookName] = useState('');
+
+  const books = collections.filter((collection) => collection.kind !== 'area' && !collection.isSmart);
+  const areas = collections.filter((collection) => collection.kind === 'area');
+  const availableAreaId = destinationAreaId === '__root__' ? undefined : destinationAreaId;
+  const destinationBooks = books.filter((book) => book.parentId === availableAreaId);
+  const destinationReady = createNewArea
+    ? Boolean(newAreaName.trim() && newBookName.trim())
+    : createNewBook
+      ? Boolean((availableAreaId || destinationAreaId === '__root__') && newBookName.trim())
+      : Boolean(destinationBookId && destinationBooks.some((book) => book.id === destinationBookId));
 
   useEffect(() => {
     if (initialItem) {
+      const existingBook = collections.find((collection) => initialItem.collectionIds?.includes(collection.id) && collection.kind !== 'area');
+      setDestinationBookId(existingBook?.id || '');
+      setDestinationAreaId(existingBook?.parentId || (existingBook ? '__root__' : ''));
       setTitle(initialItem.title);
       setShortTitle(initialItem.shortTitle);
       setType(initialItem.type);
@@ -96,6 +119,13 @@ export const ArticleEditorModal: React.FC<ArticleEditorModalProps> = ({
       setSelectedPalette(foundPalette);
       setMotif(initialItem.coverPalette.motif as any);
     } else {
+      const defaultBook = collections.find((collection) => collection.id === defaultBookId && collection.kind !== 'area');
+      setDestinationBookId(defaultBook?.id || '');
+      setDestinationAreaId(defaultBook?.parentId || (defaultBook ? '__root__' : ''));
+      setCreateNewArea(false);
+      setCreateNewBook(false);
+      setNewAreaName('');
+      setNewBookName('');
       // Default blank template
       setTitle('');
       setShortTitle('');
@@ -119,7 +149,7 @@ export const ArticleEditorModal: React.FC<ArticleEditorModalProps> = ({
       setSelectedPalette(PALETTE_OPTIONS[0]);
       setMotif('bibliometric-network');
     }
-  }, [initialItem, categories]);
+  }, [initialItem, categories, collections, defaultBookId]);
 
   if (!isOpen) return null;
 
@@ -148,7 +178,7 @@ export const ArticleEditorModal: React.FC<ArticleEditorModalProps> = ({
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!title.trim()) return;
+    if (!title.trim() || (!isEditing && !destinationReady)) return;
 
     let finalCategory = category;
     if (category === '__NEW__' && customCategoryInput.trim()) {
@@ -232,7 +262,11 @@ export const ArticleEditorModal: React.FC<ArticleEditorModalProps> = ({
     };
 
     playTactileClick();
-    onSave(updatedItem);
+    onSave(updatedItem, !isEditing ? {
+      ...(createNewArea ? { newAreaName: newAreaName.trim() } : availableAreaId ? { areaId: availableAreaId } : {}),
+      ...(!createNewArea && !createNewBook ? { bookId: destinationBookId } : {}),
+      ...((createNewArea || createNewBook) ? { newBookName: newBookName.trim() } : {}),
+    } : undefined);
     onClose();
   };
 
@@ -653,6 +687,37 @@ export const ArticleEditorModal: React.FC<ArticleEditorModalProps> = ({
               </div>
             </div>
 
+            {!isEditing && <fieldset className="space-y-3 border border-[#141414]/15 bg-[#E7E4DC] p-4">
+              <legend className="px-1 font-mono text-[11px] uppercase tracking-wider text-[#141414]/60">File this publication in a book</legend>
+              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                <label className="block font-mono text-[10px] uppercase tracking-wide text-[#5A534A]">Research area
+                  <select aria-label="Research area" value={createNewArea ? '__new_area__' : destinationAreaId} onChange={(event) => {
+                    const value = event.target.value;
+                    setCreateNewArea(value === '__new_area__');
+                    setCreateNewBook(false);
+                    setDestinationAreaId(value === '__new_area__' ? '' : value);
+                    setDestinationBookId('');
+                  }} className="mt-1 w-full border border-[#141414]/20 bg-white p-2 font-sans text-sm normal-case text-[#141414]">
+                    <option value="">Choose a research area…</option><option value="__root__">My Research · no area</option>
+                    {areas.map((area) => <option key={area.id} value={area.id}>{area.name}</option>)}
+                    <option value="__new_area__">＋ Create a new research area…</option>
+                  </select>
+                </label>
+                <label className="block font-mono text-[10px] uppercase tracking-wide text-[#5A534A]">Book
+                  <select aria-label="Book" value={createNewBook ? '__new_book__' : destinationBookId} disabled={!createNewArea && !destinationAreaId} onChange={(event) => {
+                    const value = event.target.value;
+                    setCreateNewBook(value === '__new_book__');
+                    setDestinationBookId(value === '__new_book__' ? '' : value);
+                  }} className="mt-1 w-full border border-[#141414]/20 bg-white p-2 font-sans text-sm normal-case text-[#141414] disabled:bg-[#E7E4DC]">
+                    <option value="">Choose a book…</option>{destinationBooks.map((book) => <option key={book.id} value={book.id}>{book.name}</option>)}
+                    <option value="__new_book__">＋ Create a new book…</option>
+                  </select>
+                </label>
+              </div>
+              {createNewArea && <label className="block font-mono text-[10px] uppercase tracking-wide text-[#5A534A]">New research area name<input aria-label="New research area name" value={newAreaName} onChange={(event) => setNewAreaName(event.target.value)} className="mt-1 w-full border border-[#141414]/20 bg-white p-2 font-sans text-sm normal-case text-[#141414]" /></label>}
+              {createNewBook && <label className="block font-mono text-[10px] uppercase tracking-wide text-[#5A534A]">New book name<input aria-label="New book name" value={newBookName} onChange={(event) => setNewBookName(event.target.value)} className="mt-1 w-full border border-[#141414]/20 bg-white p-2 font-sans text-sm normal-case text-[#141414]" /></label>}
+            </fieldset>}
+
             {/* Submit Action */}
             <div className="pt-4 border-t border-[#141414]/15 flex items-center justify-end gap-3">
               <button
@@ -664,7 +729,8 @@ export const ArticleEditorModal: React.FC<ArticleEditorModalProps> = ({
               </button>
               <button
                 type="submit"
-                className="px-6 py-2 bg-[#1F3FB0] text-white text-xs font-mono uppercase font-bold tracking-wider hover:bg-[#19328D] transition-colors flex items-center gap-2 cursor-pointer shadow-sm"
+                disabled={!isEditing && !destinationReady}
+                className="px-6 py-2 bg-[#1F3FB0] text-white text-xs font-mono uppercase font-bold tracking-wider hover:bg-[#19328D] disabled:cursor-not-allowed disabled:opacity-40 transition-colors flex items-center gap-2 cursor-pointer shadow-sm"
               >
                 <Check className="w-4 h-4" />
                 <span>{isEditing ? 'SAVE ARTICLE CHANGES' : 'ADD PUBLICATION TO SHELF'}</span>

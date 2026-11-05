@@ -35,19 +35,38 @@ The AI Research Assistant requires a valid Gemini API key from [Google AI Studio
 
 ## Run Locally
 
-**Prerequisites:** Node.js 18+
+**Prerequisites:** Node.js 24, Java 21, npm, and Git. The local Firebase Auth, Firestore and Storage emulators run on ports 9099, 8080 and 9199.
 
-```bash
-# Install dependencies
-npm install
+Windows PowerShell:
 
-# Create .env file with your Gemini API key
-echo "GEMINI_API_KEY=your_key_here" > .env
+```powershell
+# Install the exact dependency versions from the lockfile
+npm ci
 
-# Run development server
-npm run dev
-# Visit http://localhost:3000
+# Create .env only if one is not already present, then set the Firebase project
+# to marginalia-test-emulator and VITE_USE_FIREBASE_EMULATORS=true.
+if (!(Test-Path .env)) { Copy-Item .env.example .env }
+notepad .env
+
+# Start the app and only the dedicated local test emulators
+npm run dev:local
 ```
+
+Open http://localhost:3000. Press Ctrl+C in the same terminal to stop the app and emulators. Add a valid `GEMINI_API_KEY` to `.env` to enable the online Gemini features; the key is optional for the rest of the local app. Do not put production Firebase settings in `.env` when using `dev:local`.
+
+## Windows Desktop Installer
+
+The Windows installer is emulator-only and stores its Auth, Firestore, and PDF Storage data on this PC. It never connects to the production Firebase project. Email/password accounts created in the desktop app are local emulator accounts; Google sign-in uses the emulator flow and is not a real Google account connection. This is intended for local use, not cross-device sync.
+
+Requirements for building the installer: Windows x64, Node/npm, the root dependencies installed, the cached Firebase emulator downloads, and a Java 21 JDK. The installer builder bundles the Java runtime and Firebase emulator files, so end users do not need Node.js or Java. Build PowerShell:
+
+```powershell
+npm ci
+npm --prefix desktop ci
+npm run desktop:windows
+```
+
+The build refuses to proceed unless the existing `.env` selects `marginalia-test-emulator` and enables the emulators. The installer is written to `artifacts/windows/Marginalia-Setup-1.0.0-x64.exe`. User data persists in the Windows app-data folder after closing the app. DOI lookup requires an internet connection. The optional AI workspace stays locked until a Gemini key is entered; the Windows app protects the key with Windows secure storage. AI requests send the user's question and selected paper metadata/abstract to Google Gemini.
 
 ## Deploy to Production
 

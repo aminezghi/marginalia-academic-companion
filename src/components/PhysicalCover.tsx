@@ -68,19 +68,19 @@ export const PhysicalCover: React.FC<PhysicalCoverProps> = ({
     ? 'RESEARCH MONOGRAPH'
     : item.type.toLowerCase().includes('method')
     ? 'METHODOLOGY DOSSIER'
-    : 'RESEARCH ARTICLE';
+    : item.bookPaperIds ? 'PAPER COLLECTION' : 'RESEARCH ARTICLE';
 
   const bottomTypeWords = (item.type || 'RESEARCH ARTICLE').toUpperCase();
 
   // Reading progress & paper count metrics
   const currentPage = item.readingProgress?.currentPage ?? 0;
-  const totalPages = item.readingProgress?.totalPages || item.pageCount || 24;
+  const totalPages = item.bookPaperIds?.length || item.readingProgress?.totalPages || item.pageCount || 0;
   const progressPercent = Math.max(
     0,
     Math.min(
       100,
       item.readingProgress?.percent ??
-        Math.round((currentPage / Math.max(1, totalPages)) * 100)
+        (totalPages > 0 ? Math.round((currentPage / totalPages) * 100) : 0)
     )
   );
 
@@ -382,7 +382,9 @@ export const PhysicalCover: React.FC<PhysicalCoverProps> = ({
                 : 'UNREAD · 0%'}
             </span>
             <span className="tabular-nums">
-              {currentPage}/{totalPages} pp.
+              {item.bookPaperIds
+                ? `${Math.min(currentPage, totalPages)}/${totalPages} papers`
+                : totalPages > 0 ? `${Math.min(currentPage, totalPages)}/${totalPages} pp.` : item.pages ? `${item.pages} pp.` : 'PAGES —'}
             </span>
           </div>
           <div

@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect, useCallback, useMemo } from 'react';
+import React, { useState, useRef, useEffect, useCallback } from 'react';
 import {
   motion,
   useMotionValue,
@@ -25,7 +25,6 @@ import { ChevronLeft, ChevronRight, Palette } from 'lucide-react';
 
 interface ShelfArchiveProps {
   items: ResearchItem[];
-  allItems?: ResearchItem[];
   activeIndex: number;
   onSelectIndex: (index: number) => void;
   onOpenDetail: (item: ResearchItem) => void;
@@ -65,7 +64,6 @@ const BOUNDARY_RUBBER_FACTOR = 0.28; // Elastic resistance when pulling past she
 
 export const ShelfArchive: React.FC<ShelfArchiveProps> = ({
   items,
-  allItems,
   activeIndex,
   onSelectIndex,
   onOpenDetail,
@@ -88,21 +86,6 @@ export const ShelfArchive: React.FC<ShelfArchiveProps> = ({
   );
 
   const safeActiveIndex = Math.max(0, Math.min(items.length - 1, activeIndex));
-
-  // Count how many papers belong to each category/collection across the library
-  const categoryPaperCounts = useMemo(() => {
-    const source = allItems && allItems.length > 0 ? allItems : items;
-    const counts: Record<string, number> = {};
-    for (const p of source) {
-      counts[p.category] = (counts[p.category] || 0) + 1;
-      if (p.secondaryCategories) {
-        for (const sec of p.secondaryCategories) {
-          counts[sec] = (counts[sec] || 0) + 1;
-        }
-      }
-    }
-    return counts;
-  }, [allItems, items]);
 
   // Framer Motion physics primitives:
   const targetMotionValue = useMotionValue(safeActiveIndex);
@@ -801,7 +784,7 @@ export const ShelfArchive: React.FC<ShelfArchiveProps> = ({
 
           const transform = `translate3d(${translateX.toFixed(2)}px, ${translateY.toFixed(2)}px, ${translateZ.toFixed(2)}px) rotateY(${rotateY.toFixed(2)}deg) rotateZ(${rotateZ.toFixed(2)}deg)`;
 
-          const itemPaperCount = categoryPaperCounts[item.category] || 1;
+          const itemPaperCount = item.bookPaperIds?.length || 1;
 
           return (
             <motion.div

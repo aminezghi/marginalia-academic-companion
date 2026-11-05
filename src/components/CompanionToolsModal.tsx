@@ -14,7 +14,7 @@ interface CompanionToolsModalProps {
     categories: CategoryDefinition[];
     profile: ResearcherProfile;
   }) => void;
-  onResetToDefaults: () => void;
+  onClearContent: () => void | Promise<void>;
 }
 
 export const CompanionToolsModal: React.FC<CompanionToolsModalProps> = ({
@@ -24,12 +24,15 @@ export const CompanionToolsModal: React.FC<CompanionToolsModalProps> = ({
   categories,
   profile,
   onImportData,
-  onResetToDefaults,
+  onClearContent,
 }) => {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [copiedBibtex, setCopiedBibtex] = useState(false);
   const [showResetConfirm, setShowResetConfirm] = useState(false);
   const [importError, setImportError] = useState<string | null>(null);
+  const [resetError, setResetError] = useState<string | null>(null);
+  const [resetSuccess, setResetSuccess] = useState<string | null>(null);
+  const [resetting, setResetting] = useState(false);
 
   if (!isOpen) return null;
 
@@ -231,14 +234,14 @@ export const CompanionToolsModal: React.FC<CompanionToolsModalProps> = ({
             </button>
           </div>
 
-          {/* Action 4: Reset to Default Archive */}
+          {/* Action 4: Clear all saved library content */}
           <div className="p-4 bg-[#EDEBE6] border border-[#141414]/15 flex items-center justify-between gap-4">
             <div>
               <div className="font-semibold text-xs font-mono text-[#141414] uppercase">
-                Restore Verified Default Archive
+                Clear All Library Content
               </div>
               <p className="text-[11px] font-mono text-[#77736B] mt-0.5">
-                Reset your shelf to the initial 8 verified multidisciplinary food systems & big data research items.
+                Remove saved papers and library content from this device and your local account. Your sign-in and preferences stay intact.
               </p>
             </div>
             <button
@@ -246,7 +249,7 @@ export const CompanionToolsModal: React.FC<CompanionToolsModalProps> = ({
               className="px-3 py-1.5 border border-rose-300 text-rose-700 hover:bg-rose-50 text-xs font-mono uppercase shrink-0 transition-colors cursor-pointer flex items-center gap-1.5"
             >
               <RotateCcw className="w-3 h-3" />
-              <span>RESET</span>
+              <span>CLEAR CONTENT</span>
             </button>
           </div>
 
@@ -254,31 +257,44 @@ export const CompanionToolsModal: React.FC<CompanionToolsModalProps> = ({
           {showResetConfirm && (
             <div className="p-4 bg-rose-50 border border-rose-300 space-y-3">
               <div className="text-xs font-mono text-rose-900 font-bold uppercase">
-                Confirm Archive Reset?
+                Clear all saved content?
               </div>
               <p className="text-xs font-mono text-rose-800 leading-relaxed">
-                This will overwrite any newly created custom articles with the original 8 curated scientific items.
+                This cannot be undone. It removes papers, collections, notes, highlights, progress, goals, activity history, and attached PDFs. Your account and preferences stay.
               </p>
+              {resetError && <p role="alert" className="text-xs font-mono text-rose-900">{resetError}</p>}
               <div className="flex gap-2">
                 <button
                   onClick={() => setShowResetConfirm(false)}
+                  disabled={resetting}
                   className="px-3 py-1 bg-white border border-rose-300 text-xs font-mono uppercase cursor-pointer"
                 >
                   CANCEL
                 </button>
                 <button
-                  onClick={() => {
-                    setShowResetConfirm(false);
-                    onResetToDefaults();
-                    onClose();
+                  disabled={resetting}
+                  onClick={async () => {
+                    setResetting(true);
+                    setResetError(null);
+                    setResetSuccess(null);
+                    try {
+                      await onClearContent();
+                      setShowResetConfirm(false);
+                      setResetSuccess('Library content was cleared successfully.');
+                    } catch (error) {
+                      setResetError(error instanceof Error ? error.message : 'Could not clear library content. Please try again.');
+                    } finally {
+                      setResetting(false);
+                    }
                   }}
-                  className="px-3 py-1 bg-rose-700 text-white text-xs font-mono uppercase font-bold cursor-pointer hover:bg-rose-800"
+                  className="px-3 py-1 bg-rose-700 text-white text-xs font-mono uppercase font-bold cursor-pointer hover:bg-rose-800 disabled:opacity-60"
                 >
-                  CONFIRM RESTORE
+                  {resetting ? 'CLEARING…' : 'CONFIRM CLEAR'}
                 </button>
               </div>
             </div>
           )}
+          {resetSuccess && <p role="status" className="p-3 bg-emerald-50 border border-emerald-200 text-xs font-mono text-emerald-800">{resetSuccess}</p>}
         </div>
 
         {/* Footer */}

@@ -1,24 +1,15 @@
 import express from 'express';
-import { createServer as createViteServer } from 'vite';
-import path from 'path';
-import { fileURLToPath } from 'url';
 import dotenv from 'dotenv';
 import { GoogleGenAI } from '@google/genai';
 
 dotenv.config();
 
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
+const app = express();
+app.use(express.json({ limit: '20mb' }));
 
-async function startServer() {
-  const app = express();
-  const PORT = process.env.PORT ? parseInt(process.env.PORT, 10) : 3000;
-
-  app.use(express.json({ limit: '20mb' }));
-
-  // Helper for Gemini AI instance
-  const apiKey = process.env.GEMINI_API_KEY || '';
-  const ai = apiKey ? new GoogleGenAI({ apiKey }) : null;
+// Optional server-side Gemini key. The rest of the app works without it.
+const apiKey = process.env.GEMINI_API_KEY || '';
+const ai = apiKey ? new GoogleGenAI({ apiKey }) : null;
 
   // Gemini API key status endpoint
   app.get('/api/gemini-status', (req, res) => {
@@ -45,7 +36,7 @@ async function startServer() {
   // Real DOI Metadata Resolution Proxy (Crossref & OpenAlex)
   app.get('/api/doi', async (req, res) => {
     try {
-      const doiRaw = (req.query.doi as string) || '';
+      const doiRaw = (req.query.doi) || '';
       const doi = doiRaw.replace(/^https?:\/\/(dx\.)?doi\.org\//i, '').trim();
 
       if (!doi) {
@@ -61,23 +52,11 @@ async function startServer() {
       });
 
       if (!response.ok) {
-        // Fallback for demonstration / unpublished preprints
-        return res.json({
-          success: true,
-          data: {
-            doi,
-            title: `Empirical Study on Behavioural Dynamics and Food Systems (${doi})`,
-            authors: ['Amine Zouaghi', 'Research Collaboration Group'],
-            year: new Date().getFullYear().toString(),
-            journal: 'Journal of Sustainable Agri-Food Research & Policy',
-            volume: '42',
-            issue: '3',
-            pages: '105-124',
-            abstract:
-              'Investigation examining behavioral interventions, sensory nudging, and consumer decision architectures in European retail and solidarity food environments.',
-            publisher: 'Elsevier / Academic Press',
-            type: 'Journal Article',
-          },
+        return res.status(response.status === 404 ? 404 : 502).json({
+          success: false,
+          error: response.status === 404
+            ? 'Crossref does not have a record for this DOI.'
+            : 'Crossref could not complete the lookup. Please try again later.',
         });
       }
 
@@ -87,7 +66,7 @@ async function startServer() {
       // Normalize Crossref metadata
       const title = Array.isArray(item.title) ? item.title[0] : item.title || 'Untitled Work';
       const authors = Array.isArray(item.author)
-        ? item.author.map((a: any) => `${a.given || ''} ${a.family || ''}`.trim()).filter(Boolean)
+        ? item.author.map((a) => `${a.given || ''} ${a.family || ''}`.trim()).filter(Boolean)
         : ['Unknown Author'];
       const year =
         item.published?.['date-parts']?.[0]?.[0]?.toString() ||
@@ -122,7 +101,7 @@ async function startServer() {
           type,
         },
       });
-    } catch (err: any) {
+    } catch (err) {
       console.error('DOI resolver error:', err);
       return res.status(500).json({ error: err.message || 'Internal error resolving DOI' });
     }
@@ -137,9 +116,17 @@ async function startServer() {
         return res.status(400).json({ error: 'Query is required' });
       }
 
+      if (!ai) {
+        return res.status(503).json({
+          success: false,
+          code: 'API_KEY_REQUIRED',
+          error: 'Configure a Gemini API key to use the AI assistant.',
+        });
+      }
+
       // Format contextual library knowledge
       const papersContext = (papers || [])
-        .map((p: any, idx: number) => {
+        .map((p, idx) => {
           return `[Source ${idx + 1}] ID: ${p.id}
 Title: ${p.title}
 Authors: ${Array.isArray(p.authors) ? p.authors.join(', ') : p.authors || 'Unknown'}
@@ -199,64 +186,20 @@ Scientific Integrity Rules:
 
           const replyText = response.text || 'Unable to generate response.';
           return res.json({ success: true, answer: replyText });
-        } catch (apiErr: any) {
-          console.warn('Gemini API call failed, falling back to local synthesis engine:', apiErr.message);
+        } catch (apiErr) {
+          console.error('Gemini API request failed:', apiErr.message);
+          return res.status(502).json({
+            success: false,
+            code: 'GEMINI_REQUEST_FAILED',
+            error: 'Gemini could not answer this request. Check the API key and connection, then try again.',
+          });
         }
       }
 
-      // Intelligent Local Synthesis Fallback (when API key is absent or offline)
-      const matchedPapers = (papers || []).filter((p: any) => {
-        const q = (query || '').toLowerCase();
-        return (
-          p.title?.toLowerCase().includes(q) ||
-          p.abstract?.toLowerCase().includes(q) ||
-          p.category?.toLowerCase().includes(q) ||
-          (p.topics || []).some((t: string) => t.toLowerCase().includes(q))
-        );
-      });
-
-      const relevant = matchedPapers.length > 0 ? matchedPapers : (papers || []).slice(0, 3);
-      const citations = relevant
-        .map(
-          (p: any, i: number) =>
-            `**[Source ${i + 1}]** *${p.title}* (${p.year}) by ${Array.isArray(p.authors) ? p.authors[0] : p.authors || 'Investigators'}. Category: ${p.category}.`
-        )
-        .join('\n\n');
-
-      const fallbackText = `### Academic Library Synthesis for: "${query || 'Overview'}"
-
-Based on the **${papers?.length || 0} papers** in your research collection:
-
-${citations}
-
-#### Key Thematic Observations:
-- **Empirical Focus:** The identified works evaluate sustainable decision architecture, transactional scanner telemetry, and behavioral interventions across food systems.
-- **Methodological Alignment:** Studies combine quantitative POS scanner analysis, PRISMA systematic literature reviews, and immersive laboratory eye-tracking protocols.
-- **Reported Evidence:** Observed findings demonstrate statistically significant shifts when choice environments pair physical shelf prominence with non-monetary incentives.
-
-*(Note: Live synthesis generated from your active library index. Configure \`GEMINI_API_KEY\` in your environment for unrestricted deep reasoning.)*`;
-
-      return res.json({ success: true, answer: fallbackText });
-    } catch (err: any) {
+    } catch (err) {
       console.error('AI assistant endpoint error:', err);
       return res.status(500).json({ error: err.message || 'Internal AI error' });
     }
   });
 
-  // Mount Vite development server middlewares
-  const vite = await createViteServer({
-    server: { middlewareMode: true },
-    appType: 'spa',
-  });
-
-  app.use(vite.middlewares);
-
-  app.listen(PORT, '0.0.0.0', () => {
-    console.log(`Marginalia Academic Companion server listening on http://0.0.0.0:${PORT}`);
-  });
-}
-
-startServer().catch((err) => {
-  console.error('Failed to start server:', err);
-  process.exit(1);
-});
+export default app;

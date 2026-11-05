@@ -1,8 +1,45 @@
+# Dependencies
 node_modules/
-build/
+deploy/node_modules/
+desktop/node_modules/
+
+# Production builds & artifacts
 dist/
-coverage/
-.DS_Store
+build/
+deploy/dist/
+desktop/build-runtime/
+desktop/dist/
+artifacts/
+
+# Logs and diagnostics
 *.log
+firestore-debug.log
+ui-debug.log
+stderr/
+diagnostics/
+
+# Playwright & test reports
+test-results/
+playwright-report/
+
+# OS metadata
+.DS_Store
+Thumbs.db
+._*
+
+# Environment files
 .env*
 !.env.example
+
+# Vercel & Firebase cache
+.vercel/
+.firebase/
+
+# Backup and scratch files
+*.bak
+*.bak*
+*.backup*
+debug-storage*.cjs
+test_*.cjs
+test-emulator-check.*
+validation_environment.txt

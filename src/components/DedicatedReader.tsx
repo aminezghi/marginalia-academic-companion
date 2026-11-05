@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useCallback, useState, useEffect, useRef } from 'react';
 import { ResearchItem, Highlight, HighlightColor, ReadingStatus } from '../types/research';
 import {
   BookOpen,
@@ -20,14 +20,19 @@ import {
   Settings2,
 } from 'lucide-react';
 import { playTactileClick } from '../utils/sound';
+import type { PdfDocumentReaderProps } from './PdfDocumentReader';
 
 interface DedicatedReaderProps {
   paper: ResearchItem | null;
+  readingQueue: ResearchItem[];
+  readingScope: string | null;
+  onNavigatePaper: (paper: ResearchItem) => void;
   onClose: () => void;
   highlights: Highlight[];
   onAddHighlight: (highlight: Highlight) => void;
   onDeleteHighlight: (id: string) => void;
-  onUpdateReadingProgress: (paperId: string, page: number, percent: number) => void;
+  onUpdateReadingProgress: (paperId: string, page: number, percent: number, totalPages: number) => void;
+  onAttachPdf: (file: File) => Promise<void>;
 }
 
 const HIGHLIGHT_COLORS: { id: HighlightColor; label: string; hex: string; bgClass: string }[] = [
@@ -40,15 +45,20 @@ const HIGHLIGHT_COLORS: { id: HighlightColor; label: string; hex: string; bgClas
 
 export const DedicatedReader: React.FC<DedicatedReaderProps> = ({
   paper,
+  readingQueue,
+  readingScope,
+  onNavigatePaper,
   onClose,
   highlights,
   onAddHighlight,
   onDeleteHighlight,
   onUpdateReadingProgress,
+  onAttachPdf,
 }) => {
   const [currentPage, setCurrentPage] = useState<number>(paper?.readingProgress.currentPage || 1);
-  const totalPages = paper?.readingProgress.totalPages || 24;
-  const [fontSize, setFontSize] = useState<number>(16); // px
+  const [totalPages, setTotalPages] = useState<number>(0);
+  const [requestedPage, setRequestedPage] = useState(0);
+  const [zoom, setZoom] = useState(1);
   const [activeHighlightColor, setActiveHighlightColor] = useState<HighlightColor>('yellow');
   const [showLeftNav, setShowLeftNav] = useState<boolean>(() =>
     typeof window !== 'undefined' ? window.innerWidth >= 1200 : true
@@ -61,20 +71,51 @@ export const DedicatedReader: React.FC<DedicatedReaderProps> = ({
   const [highlightNoteInput, setHighlightNoteInput] = useState<string>('');
   const [showHighlightModal, setShowHighlightModal] = useState<boolean>(false);
   const [copiedQuoteId, setCopiedQuoteId] = useState<string | null>(null);
-
-  const readerContainerRef = useRef<HTMLDivElement>(null);
+  const lastProgressRef = useRef('');
+  const [PdfDocumentReader, setPdfDocumentReader] = useState<React.ComponentType<PdfDocumentReaderProps> | null>(null);
 
   const paperHighlights = highlights.filter((h) => h.paperId === paper?.id);
 
+  useEffect(() => {
+    let active = true;
+    void import('./PdfDocumentReader').then((module) => {
+      if (active) setPdfDocumentReader(() => module.PdfDocumentReader);
+    });
+    return () => { active = false; };
+  }, []);
+
+  const handlePageCount = useCallback((pageCount: number) => {
+    setTotalPages(pageCount);
+    setCurrentPage((page) => pageCount > 0 ? Math.min(page, pageCount) : 1);
+  }, []);
+
+  const handleCurrentPageChange = useCallback((page: number) => {
+    setCurrentPage(page);
+  }, []);
+
   // Sync reading progress
   useEffect(() => {
-    if (paper) {
+    const progressKey = `${paper?.id ?? ''}:${currentPage}:${totalPages}`;
+    if (paper && totalPages > 0 && lastProgressRef.current !== progressKey) {
+      lastProgressRef.current = progressKey;
       const percent = Math.round((currentPage / totalPages) * 100);
-      onUpdateReadingProgress(paper.id, currentPage, percent);
+      onUpdateReadingProgress(paper.id, currentPage, percent, totalPages);
     }
-  }, [currentPage, totalPages, paper, onUpdateReadingProgress]);
+  }, [currentPage, totalPages, paper?.id, onUpdateReadingProgress]);
+
+  useEffect(() => {
+    const startPage = paper?.readingProgress.currentPage || 1;
+    setCurrentPage(startPage);
+    setTotalPages(0);
+    setRequestedPage(startPage);
+    lastProgressRef.current = '';
+  }, [paper?.id, paper?.storagePath, paper?.guestPdfId]);
 
   if (!paper) return null;
+
+  const queueIndex = Math.max(0, readingQueue.findIndex((queuedPaper) => queuedPaper.id === paper.id));
+  const previousPaper = queueIndex > 0 ? readingQueue[queueIndex - 1] : null;
+  const nextPaper = queueIndex < readingQueue.length - 1 ? readingQueue[queueIndex + 1] : null;
 
   const handleTextSelection = () => {
     const selection = window.getSelection();
@@ -109,16 +150,6 @@ export const DedicatedReader: React.FC<DedicatedReaderProps> = ({
     setTimeout(() => setCopiedQuoteId(null), 2000);
   };
 
-  // Generate document sections based on content text or metadata
-  const documentSections = [
-    { title: '1. Abstract & Objectives', page: 1 },
-    { title: '2. Research Questions & Hypotheses', page: 3 },
-    { title: '3. Methodology & Empirical Protocols', page: 6 },
-    { title: '4. Data Extraction & Telemetry Analysis', page: 12 },
-    { title: '5. Key Findings & Thematic Synthesis', page: 18 },
-    { title: '6. Policy Contributions & References', page: 22 },
-  ];
-
   return (
     <div className="fixed inset-0 z-50 bg-[#EDEBE6] flex flex-col overflow-hidden animate-in fade-in duration-150">
       {/* Top Reading Header & Progress Bar */}
@@ -127,7 +158,7 @@ export const DedicatedReader: React.FC<DedicatedReaderProps> = ({
         <div className="absolute top-0 inset-x-0 h-[2.5px] bg-[#141414]/10">
           <div
             className="h-full bg-[#1F3FB0] transition-all duration-150"
-            style={{ width: `${Math.round((currentPage / totalPages) * 100)}%` }}
+            style={{ width: `${totalPages ? Math.round((currentPage / totalPages) * 100) : 0}%` }}
           />
         </div>
 
@@ -153,10 +184,33 @@ export const DedicatedReader: React.FC<DedicatedReaderProps> = ({
         </div>
 
         {/* Center: Pagination & Zoom */}
-        <div className="hidden md:flex items-center gap-3 text-xs font-mono">
+        <div className="flex items-center gap-1 sm:gap-3 text-xs font-mono">
+          {readingQueue.length > 1 && (
+            <nav aria-label={`Papers in ${readingScope || 'this book'}`} className="flex items-center gap-1 border border-[#1F3FB0]/25 bg-white p-1">
+              <button
+                type="button"
+                aria-label="Previous paper"
+                title="Previous paper in this book or folder"
+                disabled={!previousPaper}
+                onClick={() => previousPaper && onNavigatePaper(previousPaper)}
+                className="p-1 hover:bg-[#EDEBE6] disabled:opacity-30 cursor-pointer"
+              ><ChevronLeft className="w-3.5 h-3.5" /></button>
+              <span className="px-1 text-[10px] font-semibold whitespace-nowrap" aria-live="polite">
+                {readingScope ? `${readingScope} · ` : ''}{queueIndex + 1} of {readingQueue.length}
+              </span>
+              <button
+                type="button"
+                aria-label="Next paper"
+                title="Next paper in this book or folder"
+                disabled={!nextPaper}
+                onClick={() => nextPaper && onNavigatePaper(nextPaper)}
+                className="p-1 hover:bg-[#EDEBE6] disabled:opacity-30 cursor-pointer"
+              ><ChevronRight className="w-3.5 h-3.5" /></button>
+            </nav>
+          )}
           <div className="flex items-center gap-1 bg-white border border-[#141414]/20 p-1">
             <button
-              onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
+              onClick={() => setRequestedPage(Math.max(1, currentPage - 1))}
               disabled={currentPage <= 1}
               className="p-1 hover:bg-[#EDEBE6] disabled:opacity-30 cursor-pointer"
               title="Previous Page"
@@ -164,10 +218,10 @@ export const DedicatedReader: React.FC<DedicatedReaderProps> = ({
               <ChevronLeft className="w-3.5 h-3.5" />
             </button>
             <span className="px-2 font-semibold">
-              Page {currentPage} of {totalPages}
+              {totalPages > 0 ? `Page ${currentPage} of ${totalPages}` : paper.storagePath || paper.guestPdfId ? 'Loading pages…' : 'PDF not attached'}
             </span>
             <button
-              onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
+              onClick={() => setRequestedPage(Math.min(totalPages, currentPage + 1))}
               disabled={currentPage >= totalPages}
               className="p-1 hover:bg-[#EDEBE6] disabled:opacity-30 cursor-pointer"
               title="Next Page"
@@ -178,21 +232,32 @@ export const DedicatedReader: React.FC<DedicatedReaderProps> = ({
 
           <div className="flex items-center gap-1 border border-[#141414]/20 p-1 bg-white">
             <button
-              onClick={() => setFontSize((s) => Math.max(13, s - 1))}
+              onClick={() => setZoom((s) => Math.max(0.5, Math.round((s - 0.1) * 10) / 10))}
               className="p-1 hover:bg-[#EDEBE6] cursor-pointer"
-              title="Decrease Font Size"
+              title="Zoom out"
+              aria-label="Zoom out"
             >
               <ZoomOut className="w-3.5 h-3.5" />
             </button>
-            <span className="text-[10px] px-1">{fontSize}px</span>
+              <span className="text-[10px] px-1 tabular-nums">{Math.round(zoom * 100)}%</span>
             <button
-              onClick={() => setFontSize((s) => Math.min(22, s + 1))}
+              onClick={() => setZoom((s) => Math.min(2, Math.round((s + 0.1) * 10) / 10))}
               className="p-1 hover:bg-[#EDEBE6] cursor-pointer"
-              title="Increase Font Size"
+              title="Zoom in"
+              aria-label="Zoom in"
             >
               <ZoomIn className="w-3.5 h-3.5" />
             </button>
           </div>
+          <button
+            type="button"
+            onClick={() => setZoom(1)}
+            className="p-1 border border-[#141414]/20 bg-white hover:bg-[#EDEBE6] cursor-pointer"
+            title="Fit to width"
+            aria-label="Fit PDF to width"
+          >
+            <Maximize2 className="w-3.5 h-3.5" />
+          </button>
         </div>
 
         {/* Right: Panel Toggles & Palette */}
@@ -235,7 +300,7 @@ export const DedicatedReader: React.FC<DedicatedReaderProps> = ({
       </div>
 
       {/* Main 3-Panel Reading Stage */}
-      <div className="flex-1 flex overflow-hidden">
+      <div className="min-h-0 min-w-0 flex-1 flex overflow-hidden">
         {/* PANEL 1 (LEFT): Document Outline & Search */}
         {showLeftNav && (
           <aside className="fixed inset-y-12 left-0 z-40 w-72 lg:static lg:w-64 border-r border-[#141414]/15 bg-[#F4F2ED] flex flex-col justify-between overflow-y-auto select-none p-4 space-y-4 shadow-2xl lg:shadow-none">
@@ -251,22 +316,22 @@ export const DedicatedReader: React.FC<DedicatedReaderProps> = ({
                   <ArrowLeft className="w-4 h-4" />
                 </button>
               </div>
-              <div className="space-y-1">
-                {documentSections.map((sec, idx) => (
+              <div className="max-h-[50vh] space-y-1 overflow-y-auto">
+                {Array.from({ length: totalPages }, (_, index) => index + 1).map((page) => (
                   <button
-                    key={idx}
-                    onClick={() => setCurrentPage(sec.page)}
-                    className={`w-full text-left p-2 text-xs font-mono transition-colors cursor-pointer flex items-center justify-between ${
-                      currentPage >= sec.page &&
-                      (idx === documentSections.length - 1 || currentPage < documentSections[idx + 1].page)
+                    key={page}
+                    onClick={() => setRequestedPage(page)}
+                    aria-current={currentPage === page ? 'page' : undefined}
+                    className={`w-full text-left p-2 text-xs font-mono transition-colors cursor-pointer ${
+                      currentPage === page
                         ? 'bg-white border-l-2 border-[#1F3FB0] font-semibold text-[#141414] shadow-xs'
                         : 'text-[#141414]/70 hover:bg-white/60'
                     }`}
                   >
-                    <span className="truncate">{sec.title}</span>
-                    <span className="text-[10px] text-[#77736B]">p.{sec.page}</span>
+                    Page {page}
                   </button>
                 ))}
+                {totalPages === 0 && <p className="text-xs text-[#77736B]">Pages appear when the PDF is ready.</p>}
               </div>
             </div>
 
@@ -281,103 +346,23 @@ export const DedicatedReader: React.FC<DedicatedReaderProps> = ({
         )}
 
         {/* PANEL 2 (CENTER): Main Reading Area */}
-        <main
-          ref={readerContainerRef}
-          onMouseUp={handleTextSelection}
-          className="flex-1 overflow-y-auto p-6 md:p-12 flex justify-center bg-[#EDEBE6] paper-grain"
-        >
-          <div
-            className="w-full max-w-3xl bg-white text-[#141414] p-8 md:p-14 border border-[#141414]/20 shadow-xl rounded-[2px] min-h-[90vh] space-y-8 select-text"
-            style={{ fontSize: `${fontSize}px` }}
-          >
-            {/* Header Title block */}
-            <div className="border-b border-[#141414]/15 pb-6">
-              <div className="text-[11px] font-mono uppercase tracking-widest text-[#77736B]">
-                {paper.type} · VOL. {paper.number} · {paper.year}
-              </div>
-              <h1 className="font-serif text-2xl md:text-3xl font-medium tracking-tight text-[#141414] mt-2 leading-snug">
-                {paper.title}
-              </h1>
-              <div className="text-xs font-mono text-[#1F3FB0] mt-2">
-                {paper.authors.join(' · ')}
-              </div>
-              {paper.institution && (
-                <div className="text-xs font-mono text-[#77736B] mt-0.5">
-                  {paper.institution}
-                </div>
-              )}
-            </div>
-
-            {/* Abstract */}
-            <div className="p-4 bg-[#EDEBE6]/40 border-l-2 border-[#1F3FB0] italic font-serif leading-relaxed text-[#141414]/90">
-              <span className="font-mono text-xs not-italic font-bold text-[#1F3FB0] uppercase tracking-wider block mb-1">
-                Abstract
-              </span>
-              {paper.abstract}
-            </div>
-
-            {/* Realistic Extracted PDF Document Text or Scientific Synthesis */}
-            <div className="space-y-6 font-serif leading-relaxed text-[#141414]/90">
-              <h2 className="font-serif text-xl font-medium text-[#141414] border-b border-[#141414]/10 pb-1">
-                1. Scientific Background & Research Focus
-              </h2>
-              <p>
-                {paper.focus}
-              </p>
-              <p>
-                Modern food systems and consumer research require robust empirical methodologies capable of evaluating granular behavioral micro-moments. Traditional surveys introduce hypothetical biases, while unobserved transactional data risks lack of qualitative intention context.
-              </p>
-
-              <h2 className="font-serif text-xl font-medium text-[#141414] border-b border-[#141414]/10 pb-1 pt-4">
-                2. Experimental Objectives & Methodological Architecture
-              </h2>
-              <ul className="list-disc pl-5 space-y-2 font-sans text-sm">
-                {paper.objectives.map((obj, i) => (
-                  <li key={i}>{obj}</li>
-                ))}
-              </ul>
-
-              {paper.pdfContentText && (
-                <div className="mt-6 pt-4 border-t border-[#141414]/10 whitespace-pre-line font-serif text-base leading-relaxed">
-                  {paper.pdfContentText}
-                </div>
-              )}
-
-              {paper.keyFindings && paper.keyFindings.length > 0 && (
-                <div className="mt-6 p-4 bg-emerald-50/50 border border-emerald-200/60 rounded-[2px] font-sans text-xs space-y-2">
-                  <div className="font-mono font-bold text-emerald-900 uppercase tracking-wide">
-                    Verified Empirical Findings
-                  </div>
-                  {paper.keyFindings.map((f, i) => (
-                    <div key={i} className="text-emerald-950">
-                      • {f}
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
-
-            {/* Page Footer Navigation */}
-            <div className="border-t border-[#141414]/15 pt-6 flex items-center justify-between text-xs font-mono text-[#77736B]">
-              <span>Marginalia Academic Workspace · Archive Ref. ARCH-{paper.number}</span>
-              <div className="flex gap-2">
-                <button
-                  onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
-                  disabled={currentPage <= 1}
-                  className="px-2 py-1 border hover:border-[#1F3FB0] disabled:opacity-30 cursor-pointer"
-                >
-                  ← Previous
-                </button>
-                <button
-                  onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
-                  disabled={currentPage >= totalPages}
-                  className="px-2 py-1 border hover:border-[#1F3FB0] disabled:opacity-30 cursor-pointer"
-                >
-                  Next →
-                </button>
-              </div>
-            </div>
-          </div>
+        <main className="relative min-h-0 min-w-0 flex-1 overflow-hidden bg-[#EDEBE6]">
+          {PdfDocumentReader ? (
+            <PdfDocumentReader
+              key={paper.id}
+              paper={paper}
+              requestedPage={requestedPage}
+              zoom={zoom}
+              onPageCount={handlePageCount}
+              onCurrentPageChange={handleCurrentPageChange}
+              onTextSelection={handleTextSelection}
+              onAttachPdf={onAttachPdf}
+            />
+          ) : (
+            <p role="status" className="absolute inset-0 grid place-items-center font-mono text-sm text-[#77736B]">
+              Loading PDF renderer…
+            </p>
+          )}
         </main>
 
         {/* PANEL 3 (RIGHT): Highlights, Annotations & Bookmarks */}

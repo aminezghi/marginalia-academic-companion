@@ -1,0 +1,26 @@
+{
+  "firestore": {
+    "rules": "firestore-emulator.rules",
+    "indexes": "firestore.indexes.json"
+  },
+  "storage": {
+    "rules": "storage-emulator.rules"
+  },
+  "emulators": {
+    "firestore": {
+      "host": "127.0.0.1",
+      "port": 18080
+    },
+    "auth": {
+      "host": "127.0.0.1",
+      "port": 19099
+    },
+    "storage": {
+      "host": "127.0.0.1",
+      "port": 19199
+    },
+    "ui": {
+      "enabled": false
+    }
+  }
+}

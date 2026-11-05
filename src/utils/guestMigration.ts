@@ -37,8 +37,8 @@ interface MigrationResult {
 const findDuplicateItems = (
   localItems: ResearchItem[],
   cloudItems: ResearchItem[]
-): { local: ResearchItem[], cloud: ResearchItem[] }[] => {
-  const duplicates: { local: ResearchItem, cloud: ResearchItem }[] = [];
+): { local: ResearchItem; cloud: ResearchItem }[] => {
+  const duplicates: { local: ResearchItem; cloud: ResearchItem }[] = [];
   
   cloudItems.forEach(cloudItem => {
     localItems.forEach(localItem => {
@@ -65,22 +65,6 @@ const findDuplicateItems = (
   return duplicates;
 };
 
-// Merge papers with priority to cloud data
-const mergeResearchItem = (local: ResearchItem, cloud: ResearchItem): ResearchItem => {
-  return {
-    ...local,
-    ...cloud,
-    // Preserve local reading status if not set in cloud
-    readingStatus: cloud.readingStatus || local.readingStatus,
-    // Merge authors (prefer cloud)
-    authors: cloud.authors?.length ? cloud.authors : local.authors,
-    // Merge highlights (combine both)
-    highlights: [...new Set([...(cloud.highlights || []), ...(local.highlights || [])])],
-    // Merge notes (combine both)
-    notes: [...new Set([...(cloud.notes || []), ...(local.notes || [])])],
-  };
-};
-
 export const migrateGuestToCloud = async (
   guestData: GuestExportData,
   cloudSync: (uid: string, data: any) => Promise<void>,
@@ -95,52 +79,50 @@ export const migrateGuestToCloud = async (
     
     // Find duplicates
     const itemDuplicates = findDuplicateItems(guestData.researchItems, existingItems);
-    const collectionDuplicates = findDuplicateItems(guestData.collections, existingCollections);
+    const collectionDuplicates: { local: ResearchCollection; cloud: ResearchCollection }[] = [];
     
-    // Merge items
-    const mergedItems: ResearchItem[] = [];
-    const seenIds = new Set<string>();
+    // Merge items - use a map to track seen IDs
+    const mergedItemsMap = new Map<string, ResearchItem>();
     
     // Add cloud items first
     existingItems.forEach(item => {
-      mergedItems.push(item);
-      seenIds.add(item.id);
+      mergedItemsMap.set(item.id, item);
     });
     
     // Add guest items, merging or adding
     guestData.researchItems.forEach(guestItem => {
       const duplicate = itemDuplicates.find(d => d.local.id === guestItem.id);
       if (duplicate) {
-        mergedItems.push(mergeResearchItem(duplicate.local, duplicate.cloud));
-      } else if (!seenIds.has(guestItem.id)) {
-        mergedItems.push(guestItem);
-        seenIds.add(guestItem.id);
+        // Merge: preserve local reading status and add cloud data
+        mergedItemsMap.set(guestItem.id, {
+          ...duplicate.local,
+          ...duplicate.cloud,
+          readingStatus: duplicate.cloud.readingStatus || duplicate.local.readingStatus,
+          authors: duplicate.cloud.authors?.length ? duplicate.cloud.authors : duplicate.local.authors,
+        });
+      } else if (!mergedItemsMap.has(guestItem.id)) {
+        mergedItemsMap.set(guestItem.id, guestItem);
       }
     });
     
-    // Merge collections (similar logic)
-    const mergedCollections: ResearchCollection[] = [];
-    const seenCollectionIds = new Set<string>();
+    const mergedItems = Array.from(mergedItemsMap.values());
+    
+    // Merge collections
+    const mergedCollectionsMap = new Map<string, ResearchCollection>();
     
     existingCollections.forEach(collection => {
-      mergedCollections.push(collection);
-      seenCollectionIds.add(collection.id);
+      mergedCollectionsMap.set(collection.id, collection);
     });
     
     guestData.collections.forEach(guestCollection => {
-      if (!seenCollectionIds.has(guestCollection.id)) {
-        mergedCollections.push(guestCollection);
-        seenCollectionIds.add(guestCollection.id);
+      if (!mergedCollectionsMap.has(guestCollection.id)) {
+        mergedCollectionsMap.set(guestCollection.id, guestCollection);
       }
     });
     
-    // Merge other data
-    const mergedNotes = [
-      ...existingCollections.map(c => ({ type: 'collection', data: c })),
-      ...guestData.collections
-    ] as any[];
+    const mergedCollections = Array.from(mergedCollectionsMap.values());
     
-    // Prepare migration payload
+    // Prepare migration payload - structured to match Firestore rules
     const migrationPayload = {
       uid,
       researchItems: mergedItems,
@@ -154,7 +136,6 @@ export const migrateGuestToCloud = async (
       profile: guestData.profile || {
         uid,
         displayName: `User ${uid.substring(0, 8)}`,
-        email: '',
         primaryAffiliation: '',
         researchPillars: [],
         settings: guestData.settings || {

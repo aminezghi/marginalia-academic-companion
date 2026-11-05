@@ -7,20 +7,23 @@ import {
   Check,
   AlertCircle,
   FileCode,
-  Table,
   Sparkles,
   ArrowRight,
   BookOpen,
 } from 'lucide-react';
-import { ResearchItem, ResearchCategory } from '../types/research';
-import { parseBibTeX, parseRIS, parseCSV, ParsedRecord } from '../utils/importer';
+import { ResearchItem, ResearchCategory, ResearchCollection, ImportDestination } from '../types/research';
+import { PdfDocumentReference } from '../services/pdfDocuments';
+import { parseBibliographyFile, ParsedRecord } from '../utils/importer';
 import { playTactileClick, playPaperRustle } from '../utils/sound';
 
 interface DedicatedImportModalProps {
   isOpen: boolean;
   onClose: () => void;
   existingPapers: ResearchItem[];
-  onImportPapers: (newPapers: ResearchItem[]) => void;
+  collections: ResearchCollection[];
+  defaultCollectionIds?: string[];
+  onImportPapers: (newPapers: ResearchItem[], destination: ImportDestination) => void;
+  onStorePdf: (file: File) => Promise<PdfDocumentReference>;
   categories: { id: string; label: string }[];
 }
 
@@ -28,24 +31,58 @@ export const DedicatedImportModal: React.FC<DedicatedImportModalProps> = ({
   isOpen,
   onClose,
   existingPapers,
+  collections,
+  defaultCollectionIds = [],
   onImportPapers,
+  onStorePdf,
   categories,
 }) => {
-  const [activeTab, setActiveTab] = useState<'doi' | 'bibtex' | 'pdf' | 'csv'>('doi');
+  const [activeTab, setActiveTab] = useState<'doi' | 'bibtex' | 'pdf'>('doi');
   const [doiInput, setDoiInput] = useState('');
   const [isDoiLoading, setIsDoiLoading] = useState(false);
   const [doiError, setDoiError] = useState<string | null>(null);
 
   const [rawText, setRawText] = useState('');
   const [parsedItems, setParsedItems] = useState<ParsedRecord[]>([]);
+  const [bibliographyError, setBibliographyError] = useState<string | null>(null);
 
   const [defaultCategory, setDefaultCategory] = useState<ResearchCategory>('CONSUMER BEHAVIOUR');
   const [defaultStatus, setDefaultStatus] = useState<
     'inbox' | 'to_read' | 'reading' | 'reference_only'
   >('inbox');
+  const [destinationAreaId, setDestinationAreaId] = useState('');
+  const [destinationBookId, setDestinationBookId] = useState('');
+  const [createNewArea, setCreateNewArea] = useState(false);
+  const [createNewBook, setCreateNewBook] = useState(false);
+  const [newAreaName, setNewAreaName] = useState('');
+  const [newBookName, setNewBookName] = useState('');
+  const defaultCollectionKey = defaultCollectionIds.join('|');
+
+  React.useEffect(() => {
+    if (!isOpen) return;
+    const book = collections.find((collection) => defaultCollectionIds.includes(collection.id) && collection.kind !== 'area');
+    setDestinationBookId(book?.id || '');
+    setDestinationAreaId(book?.parentId || (book ? '__root__' : ''));
+    setCreateNewArea(false);
+    setCreateNewBook(false);
+    setNewAreaName('');
+    setNewBookName('');
+  }, [isOpen, defaultCollectionKey]);
+
+  const books = collections.filter((collection) => !collection.isSmart && collection.kind !== 'area');
+  const areas = collections.filter((collection) => collection.kind === 'area');
+  const availableAreaId = destinationAreaId === '__root__' ? undefined : destinationAreaId;
+  const destinationBooks = books.filter((book) => book.parentId === availableAreaId);
+  const destinationReady = createNewArea
+    ? Boolean(newAreaName.trim() && newBookName.trim())
+    : createNewBook
+      ? Boolean((availableAreaId || destinationAreaId === '__root__') && newBookName.trim())
+      : Boolean(destinationBookId && destinationBooks.some((book) => book.id === destinationBookId));
 
   const [uploadedPdfName, setUploadedPdfName] = useState<string | null>(null);
-  const [pdfExtractedText, setPdfExtractedText] = useState<string>('');
+  const [pdfDocumentReference, setPdfDocumentReference] = useState<PdfDocumentReference | null>(null);
+  const [isPdfUploading, setIsPdfUploading] = useState(false);
+  const [pdfUploadError, setPdfUploadError] = useState<string | null>(null);
 
   if (!isOpen) return null;
 
@@ -100,65 +137,82 @@ export const DedicatedImportModal: React.FC<DedicatedImportModalProps> = ({
     }
   };
 
-  // Parse BibTeX or RIS from text
-  const handleParseBib = () => {
-    if (!rawText.trim()) return;
+  const parseBibliography = (text: string, filename = 'pasted.txt') => {
+    if (!text.trim()) return;
     playTactileClick();
+    const records = parseBibliographyFile(filename, text);
+    setParsedItems(records);
+    setBibliographyError(records.length ? null : 'No article records found. Check the export format and required title column/field.');
+  };
 
-    if (rawText.includes('@') && rawText.includes('{')) {
-      const records = parseBibTeX(rawText);
-      setParsedItems(records);
-    } else if (rawText.includes('TY  -') || rawText.includes('ER  -')) {
-      const records = parseRIS(rawText);
-      setParsedItems(records);
-    } else {
-      // Fallback try both
-      const records = parseBibTeX(rawText);
-      if (records.length > 0) setParsedItems(records);
-      else setParsedItems(parseRIS(rawText));
+  const handleBibliographyFile = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+    setBibliographyError(null);
+    try {
+      if (file.size > 20 * 1024 * 1024) throw new Error('Bibliography files must be smaller than 20 MB.');
+      const content = await file.text();
+      setRawText(content);
+      parseBibliography(content, file.name);
+    } catch (error) {
+      setBibliographyError(error instanceof Error ? error.message : 'Could not read this bibliography file.');
+    } finally {
+      event.target.value = '';
     }
   };
 
-  // Parse CSV
-  const handleParseCsv = () => {
-    if (!rawText.trim()) return;
-    playTactileClick();
-    const records = parseCSV(rawText);
-    setParsedItems(records);
-  };
-
   // Handle PDF drop or select
-  const handlePdfUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handlePdfUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
+    setPdfUploadError(null);
+    setPdfDocumentReference(null);
+    setUploadedPdfName(null);
+    setParsedItems([]);
 
-    setUploadedPdfName(file.name);
-    playTactileClick();
+    if (!file.name.toLowerCase().endsWith('.pdf') || (file.type && file.type !== 'application/pdf')) {
+      setPdfUploadError('Choose a PDF file.');
+      e.target.value = '';
+      return;
+    }
+    if (file.size <= 0 || file.size > 50 * 1024 * 1024) {
+      setPdfUploadError('PDF files must be between 1 byte and 50 MB.');
+      e.target.value = '';
+      return;
+    }
+    const header = new Uint8Array(await file.slice(0, 5).arrayBuffer());
+    if (new TextDecoder().decode(header) !== '%PDF-') {
+      setPdfUploadError('The selected file does not have a valid PDF signature.');
+      e.target.value = '';
+      return;
+    }
 
-    // Auto extract title from filename
-    const cleanTitle = file.name.replace(/\.pdf$/i, '').replace(/[-_]/g, ' ');
+    setIsPdfUploading(true);
+    try {
+      const reference = await onStorePdf(file);
+      setPdfDocumentReference(reference);
+      setUploadedPdfName(file.name);
+      playTactileClick();
 
-    const reader = new FileReader();
-    reader.onload = (event) => {
-      const content = (event.target?.result as string) || '';
-      // Create extracted text summary
-      const sampleText = `[Extracted from uploaded document: ${file.name}]\n\nFile size: ${(
-        file.size / 1024
-      ).toFixed(1)} KB\n\n${content.slice(0, 1500)}`;
-      setPdfExtractedText(sampleText);
-
+      // Auto-label from filename. Author, abstract, and PDF text remain empty
+      // until they are actually supplied or extracted from the document.
+      const cleanTitle = file.name.replace(/\.pdf$/i, '').replace(/[-_]/g, ' ');
       setParsedItems([
         {
           title: cleanTitle,
-          authors: ['Uploaded Author / Institutional Source'],
-          year: String(new Date().getFullYear()),
+          authors: [],
+          year: 'n.d.',
           journal: 'Uploaded PDF Archive',
           type: 'Scientific Article',
-          abstract: `Locally ingested research document. Full text parsed and accessible directly inside the Academic Reader.`,
+          abstract: '',
         },
       ]);
-    };
-    reader.readAsText(file.slice(0, 50000));
+    } catch (uploadError) {
+      setPdfUploadError(uploadError instanceof Error ? uploadError.message : 'Could not store this PDF.');
+    } finally {
+      setIsPdfUploading(false);
+      e.target.value = '';
+    }
   };
 
   // Check if item is already in library
@@ -172,7 +226,7 @@ export const DedicatedImportModal: React.FC<DedicatedImportModalProps> = ({
 
   // Finalize import
   const handleCommitImport = () => {
-    if (parsedItems.length === 0) return;
+    if (parsedItems.length === 0 || !destinationReady) return;
     playPaperRustle();
 
     const newResearchItems: ResearchItem[] = parsedItems.map((record, idx) => {
@@ -183,23 +237,23 @@ export const DedicatedImportModal: React.FC<DedicatedImportModalProps> = ({
         number: itemNumber,
         title: record.title,
         shortTitle: record.title.slice(0, 36),
-        year: String(parseInt(record.year, 10) || new Date().getFullYear()),
-        type: record.type || 'Scientific Articles',
-        status: 'Published',
+        year: record.year || 'n.d.',
+        type: record.type || 'Journal Article',
+        status: 'Imported',
         field: defaultCategory,
         category: defaultCategory,
         secondaryCategories: [defaultCategory],
-        institution: record.journal || record.publisher || 'Peer-Reviewed Source',
+        institution: record.journal || record.publisher || '',
         journal: record.journal,
         authors: record.authors,
         doi: record.doi,
-        abstract:
-          record.abstract ||
-          'Comprehensive empirical study exploring sustainable decision architectures and consumer preferences.',
+        url: record.url || (record.doi ? `https://doi.org/${record.doi}` : undefined),
+        pageCount: record.pageCount,
+        abstract: record.abstract || '',
         readingStatus: defaultStatus,
         readingProgress: {
           currentPage: 1,
-          totalPages: 18,
+          totalPages: 0,
           percent: 0,
           totalReadingTimeMinutes: 0,
         },
@@ -211,12 +265,12 @@ export const DedicatedImportModal: React.FC<DedicatedImportModalProps> = ({
         },
         collectionIds: [],
         tags: record.keywords && record.keywords.length > 0 ? record.keywords : ['imported'],
-        topics: [defaultCategory, 'Empirical Research'],
-        methods: ['Bibliographic Analysis'],
+        topics: record.keywords || [],
+        methods: [],
         focus: record.abstract?.slice(0, 160) || record.title,
-        objectives: ['Analyze and integrate imported findings into personal literature base.'],
-        researchQuestions: ['What are the core conclusions and methodological contributions?'],
-        contributions: ['Indexed into researcher knowledge repository.'],
+        objectives: [],
+        researchQuestions: [],
+        contributions: [],
         spineAccent: '#1F3FB0',
         coverPalette: {
           bg: '#EDEBE6',
@@ -226,8 +280,8 @@ export const DedicatedImportModal: React.FC<DedicatedImportModalProps> = ({
         },
         visualMaterial: {
           type: 'literature-map',
-          title: `${record.title} Conceptual Flow`,
-          caption: 'Ingested dossier representation',
+          title: 'Imported article',
+          caption: 'No visual analysis supplied with this bibliography record.',
         },
         resources: [
           {
@@ -236,16 +290,22 @@ export const DedicatedImportModal: React.FC<DedicatedImportModalProps> = ({
             available: true,
           },
         ],
-        extractedText:
-          pdfExtractedText ||
-          `TITLE: ${record.title}\nAUTHORS: ${record.authors.join(
-            ', '
-          )}\nJOURNAL: ${record.journal || 'Academic Repository'}\nDOI: ${record.doi || 'N/A'}\n\nABSTRACT:\n${record.abstract || 'No abstract provided.'}\n\n1. INTRODUCTION\nRecent transitions in global consumption emphasize the need for rigorous behavioural and economic frameworks...\n\n2. METHODOLOGY & PROTOCOLS\nData was collected across empirical consumer cohorts utilizing controlled choice scenarios.\n\n3. KEY FINDINGS\nStatistically significant effects were identified across all primary metrics.`,
-        pdfContentText: pdfExtractedText || '',
+        extractedText: record.abstract || '',
+        ...(pdfDocumentReference && {
+          ...pdfDocumentReference,
+          pdfFileName: pdfDocumentReference.fileName,
+        }),
       };
     });
 
-    onImportPapers(newResearchItems);
+    onImportPapers(newResearchItems, {
+      ...(createNewArea ? { newAreaName: newAreaName.trim() } : availableAreaId ? { areaId: availableAreaId } : {}),
+      ...(!createNewArea && !createNewBook ? { bookId: destinationBookId } : {}),
+      ...((createNewArea || createNewBook) ? { newBookName: newBookName.trim() } : {}),
+    });
+    setPdfDocumentReference(null);
+    setUploadedPdfName(null);
+    setParsedItems([]);
     onClose();
   };
 
@@ -275,9 +335,8 @@ export const DedicatedImportModal: React.FC<DedicatedImportModalProps> = ({
         <div className="border-b border-[#141414]/15 bg-white flex">
           {[
             { id: 'doi' as const, label: 'DOI Lookup', icon: Globe },
-            { id: 'bibtex' as const, label: 'BibTeX / RIS', icon: FileCode },
+            { id: 'bibtex' as const, label: 'Bibliography', icon: FileCode },
             { id: 'pdf' as const, label: 'PDF Document', icon: FileText },
-            { id: 'csv' as const, label: 'CSV Table', icon: Table },
           ].map((tab) => {
             const Icon = tab.icon;
             const active = activeTab === tab.id;
@@ -367,13 +426,17 @@ export const DedicatedImportModal: React.FC<DedicatedImportModalProps> = ({
           {activeTab === 'bibtex' && (
             <div className="space-y-4">
               <p className="font-sans text-xs text-[#141414]/70 leading-relaxed">
-                Paste one or multiple BibTeX (<code>@article&#123;...&#125;</code>) or RIS entries
-                exported from Google Scholar, Zotero, Mendeley, or Web of Science.
+                Import BibTeX, RIS, Scopus, Web of Science, or other CSV/TSV exports. Files stay on this device.
               </p>
+
+              <label className="inline-flex items-center gap-2 px-3 py-2 bg-white border border-[#141414]/20 text-xs font-mono uppercase cursor-pointer hover:border-[#1F3FB0]">
+                <Upload className="w-3.5 h-3.5" /> Choose bibliography file
+                <input type="file" accept=".bib,.ris,.csv,.tsv,.txt,.enw,.ciw,text/plain,text/csv" onChange={handleBibliographyFile} className="sr-only" />
+              </label>
 
               <textarea
                 rows={7}
-                placeholder={`@article{smith2024consumer,\n  title = {Consumer heuristics in eco-label selection},\n  author = {Smith, Elena and Rossi, Marco},\n  journal = {Journal of Cleaner Production},\n  year = {2024},\n  volume = {380},\n  pages = {134-149},\n  doi = {10.1016/j.jclepro.2024.134149}\n}`}
+                placeholder="Paste BibTeX, RIS, or CSV/TSV exported from Scopus or Web of Science"
                 value={rawText}
                 onChange={(e) => setRawText(e.target.value)}
                 className="w-full bg-white border border-[#141414]/20 p-3 font-mono text-xs text-[#141414] focus:outline-none focus:border-[#1F3FB0]"
@@ -381,13 +444,14 @@ export const DedicatedImportModal: React.FC<DedicatedImportModalProps> = ({
 
               <div className="flex justify-end">
                 <button
-                  onClick={handleParseBib}
+                  onClick={() => parseBibliography(rawText)}
                   disabled={!rawText.trim()}
                   className="bg-[#141414] text-white hover:bg-[#1F3FB0] transition-colors px-4 py-2 font-mono text-xs uppercase cursor-pointer"
                 >
-                  Parse Entries
+                  Parse Bibliography
                 </button>
               </div>
+              {bibliographyError && <p role="alert" className="text-sm text-rose-800">{bibliographyError}</p>}
             </div>
           )}
 
@@ -395,8 +459,8 @@ export const DedicatedImportModal: React.FC<DedicatedImportModalProps> = ({
           {activeTab === 'pdf' && (
             <div className="space-y-4">
               <p className="font-sans text-xs text-[#141414]/70 leading-relaxed">
-                Upload a research preprint or published paper in PDF format. Text and metadata will
-                be indexed for distraction-free reading and annotation.
+                Upload a research PDF for private reading. Its original bytes are kept intact and
+                rendered in the reader.
               </p>
 
               <label className="border-2 border-dashed border-[#141414]/20 hover:border-[#1F3FB0] bg-white p-8 flex flex-col items-center justify-center cursor-pointer transition-colors block text-center">
@@ -405,7 +469,7 @@ export const DedicatedImportModal: React.FC<DedicatedImportModalProps> = ({
                   {uploadedPdfName || 'Drop PDF file here or browse computer'}
                 </span>
                 <span className="font-mono text-[10px] text-[#141414]/50 mt-1 block">
-                  Supports .pdf files up to 50MB
+                  {isPdfUploading ? 'Storing PDF…' : 'Supports .pdf files up to 50 MB'}
                 </span>
                 <input
                   type="file"
@@ -414,33 +478,8 @@ export const DedicatedImportModal: React.FC<DedicatedImportModalProps> = ({
                   className="hidden"
                 />
               </label>
-            </div>
-          )}
-
-          {/* CSV TAB */}
-          {activeTab === 'csv' && (
-            <div className="space-y-4">
-              <p className="font-sans text-xs text-[#141414]/70 leading-relaxed">
-                Paste CSV table data. Requires headers like: <code>title,authors,year,journal,doi</code>.
-              </p>
-
-              <textarea
-                rows={6}
-                placeholder={`title,authors,year,journal,doi\n"Nudging sustainable food choices","Amine Azouaghi; Chema Gil",2024,"Food Quality and Preference","10.1016/j.foodqual.2024.1001"`}
-                value={rawText}
-                onChange={(e) => setRawText(e.target.value)}
-                className="w-full bg-white border border-[#141414]/20 p-3 font-mono text-xs text-[#141414] focus:outline-none focus:border-[#1F3FB0]"
-              />
-
-              <div className="flex justify-end">
-                <button
-                  onClick={handleParseCsv}
-                  disabled={!rawText.trim()}
-                  className="bg-[#141414] text-white hover:bg-[#1F3FB0] transition-colors px-4 py-2 font-mono text-xs uppercase cursor-pointer"
-                >
-                  Parse CSV Table
-                </button>
-              </div>
+              {pdfUploadError && <p role="alert" className="text-sm text-rose-800">{pdfUploadError}</p>}
+              {uploadedPdfName && <p role="status" className="text-xs text-emerald-800">PDF ready to import: {uploadedPdfName}</p>}
             </div>
           )}
 
@@ -538,6 +577,44 @@ export const DedicatedImportModal: React.FC<DedicatedImportModalProps> = ({
                     <option value="reference_only">Reference Only</option>
                   </select>
                 </div>
+
+                <fieldset className="md:col-span-2 space-y-3">
+                  <legend className="block font-mono text-[11px] uppercase tracking-wider text-[#141414]/60 mb-2">
+                    File these papers in a book
+                  </legend>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <label className="block font-mono text-[10px] uppercase tracking-wide text-[#5A534A]">
+                      Research area
+                      <select aria-label="Research area" value={createNewArea ? '__new_area__' : destinationAreaId} onChange={(event) => {
+                        const value = event.target.value;
+                        setCreateNewArea(value === '__new_area__');
+                        setCreateNewBook(false);
+                        setDestinationAreaId(value === '__new_area__' ? '' : value);
+                        setDestinationBookId('');
+                      }} className="mt-1 w-full border border-[#141414]/20 bg-white p-2 font-sans text-sm normal-case text-[#141414]">
+                        <option value="">Choose a research area…</option>
+                        <option value="__root__">My Research · no area</option>
+                        {areas.map((area) => <option key={area.id} value={area.id}>{area.name}</option>)}
+                        <option value="__new_area__">＋ Create a new research area…</option>
+                      </select>
+                    </label>
+                    <label className="block font-mono text-[10px] uppercase tracking-wide text-[#5A534A]">
+                      Book
+                      <select aria-label="Book" value={createNewBook ? '__new_book__' : destinationBookId} disabled={!createNewArea && !destinationAreaId} onChange={(event) => {
+                        const value = event.target.value;
+                        setCreateNewBook(value === '__new_book__');
+                        setDestinationBookId(value === '__new_book__' ? '' : value);
+                      }} className="mt-1 w-full border border-[#141414]/20 bg-white p-2 font-sans text-sm normal-case text-[#141414] disabled:bg-[#E7E4DC]">
+                        <option value="">Choose a book…</option>
+                        {destinationBooks.map((book) => <option key={book.id} value={book.id}>{book.name}</option>)}
+                        <option value="__new_book__">＋ Create a new book…</option>
+                      </select>
+                    </label>
+                  </div>
+                  {createNewArea && <label className="block font-mono text-[10px] uppercase tracking-wide text-[#5A534A]">New research area name<input aria-label="New research area name" value={newAreaName} onChange={(event) => setNewAreaName(event.target.value)} placeholder="e.g. Food systems" className="mt-1 w-full border border-[#141414]/20 bg-white p-2 font-sans text-sm normal-case text-[#141414]" /></label>}
+                  {createNewBook && <label className="block font-mono text-[10px] uppercase tracking-wide text-[#5A534A]">New book name<input aria-label="New book name" value={newBookName} onChange={(event) => setNewBookName(event.target.value)} placeholder="e.g. Literature review" className="mt-1 w-full border border-[#141414]/20 bg-white p-2 font-sans text-sm normal-case text-[#141414]" /></label>}
+                  <p className="text-[10px] font-mono text-[#77736B]">Every imported paper will be placed in this one book. You can move it later.</p>
+                </fieldset>
               </div>
             </div>
           )}
@@ -554,10 +631,10 @@ export const DedicatedImportModal: React.FC<DedicatedImportModalProps> = ({
 
           <button
             onClick={handleCommitImport}
-            disabled={parsedItems.length === 0}
+            disabled={parsedItems.length === 0 || !destinationReady}
             className="bg-[#141414] text-white hover:bg-[#1F3FB0] disabled:bg-[#141414]/20 disabled:cursor-not-allowed transition-colors px-6 py-2.5 font-mono text-xs uppercase tracking-wider flex items-center gap-2 cursor-pointer font-medium"
           >
-            <span>Import {parsedItems.length > 0 ? `(${parsedItems.length})` : ''} into Library</span>
+            <span>{destinationReady ? `Import ${parsedItems.length > 0 ? `(${parsedItems.length})` : ''} into book` : 'Choose an area and book'}</span>
             <ArrowRight className="w-4 h-4" />
           </button>
         </div>

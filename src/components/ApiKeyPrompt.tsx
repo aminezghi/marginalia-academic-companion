@@ -1,112 +1,130 @@
-import React, { useState, useEffect } from 'react';
-import { X, AlertCircle, Key, ExternalLink, Copy, Check } from 'lucide-react';
+import React, { useEffect, useState } from 'react';
+import { AlertCircle, ExternalLink, Key, X } from 'lucide-react';
 import { playTactileClick } from '../utils/sound';
 
 interface ApiKeyPromptProps {
   onDismiss: () => void;
+  onConfigured: () => void;
 }
 
-export const ApiKeyPrompt: React.FC<ApiKeyPromptProps> = ({ onDismiss }) => {
-  const [copied, setCopied] = useState(false);
-  const [isVisible, setIsVisible] = useState(true);
+export const ApiKeyPrompt: React.FC<ApiKeyPromptProps> = ({ onDismiss, onConfigured }) => {
+  const [hasKey, setHasKey] = useState(false);
+  const [apiKey, setApiKey] = useState('');
+  const [error, setError] = useState('');
+  const [isSaving, setIsSaving] = useState(false);
+  const isDesktop = Boolean(window.marginaliaDesktop?.isDesktop);
 
   useEffect(() => {
-    const handleEscape = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') {
-        dismissPrompt();
-      }
+    const handleEscape = (event: KeyboardEvent) => {
+      if (event.key === 'Escape' && !isSaving) onDismiss();
     };
     window.addEventListener('keydown', handleEscape);
     return () => window.removeEventListener('keydown', handleEscape);
-  }, []);
+  }, [isSaving, onDismiss]);
 
-  const dismissPrompt = () => {
-    playTactileClick();
-    setIsVisible(false);
-    setTimeout(() => onDismiss(), 300);
+  const saveKey = async (event: React.FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    setError('');
+    if (!window.marginaliaDesktop) {
+      setError('Secure key entry is available in the installed desktop app. For browser development, set GEMINI_API_KEY in .env and restart the server.');
+      return;
+    }
+    if (apiKey.trim().length < 8) {
+      setError('Enter your Gemini API key to continue.');
+      return;
+    }
+
+    setIsSaving(true);
+    try {
+      await window.marginaliaDesktop.saveGeminiApiKey(apiKey.trim());
+      setApiKey('');
+      playTactileClick();
+      onConfigured();
+    } catch (saveError) {
+      setError(saveError instanceof Error ? saveError.message : 'The key could not be saved securely.');
+    } finally {
+      setIsSaving(false);
+    }
   };
-
-  const copyInstructions = () => {
-    navigator.clipboard.writeText('GEMINI_API_KEY=your_key_here').then(() => {
-      setCopied(true);
-      setTimeout(() => setCopied(false), 2000);
-    });
-  };
-
-  if (!isVisible) return null;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm animate-fadeIn">
-      <div className="bg-[#F4F1EA] border border-[#141414]/20 rounded-xl shadow-2xl max-w-md w-full mx-4 p-6 animate-scaleIn">
+    <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/55 p-4 backdrop-blur-sm" role="presentation">
+      <section
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="api-key-title"
+        className="w-full max-w-lg border border-[#141414]/20 bg-[#F4F1EA] p-6 shadow-2xl md:p-8"
+      >
         <div className="flex items-start gap-4">
-          <div className="flex-shrink-0 mt-0.5">
-            <div className="w-12 h-12 bg-[#1F3FB0]/10 rounded-full flex items-center justify-center">
-              <AlertCircle className="w-6 h-6 text-[#1F3FB0]" />
-            </div>
+          <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-[#1F3FB0]/10 text-[#1F3FB0]">
+            <AlertCircle className="h-5 w-5" />
           </div>
-          <div className="flex-1">
-            <h3 className="font-serif text-xl font-medium text-[#141414] mb-2">
-              AI Features Require API Key
-            </h3>
-            <p className="font-sans text-sm text-[#4A433B] mb-4 leading-relaxed">
-              To use the AI Research Assistant and generate live literature syntheses, you need to configure a Gemini API key.
-            </p>
-            
-            <div className="bg-white border border-[#141414]/15 rounded-lg p-4 mb-4">
-              <div className="font-mono text-xs text-[#141414]/60 mb-2">Create your .env file in the deploy folder with:</div>
-              <div className="font-mono text-sm bg-[#EDE8DD] p-2 rounded mb-3 break-all">
-                GEMINI_API_KEY=your_gemini_api_key_here
+          <div className="min-w-0 flex-1">
+            <div className="flex items-start justify-between gap-3">
+              <div>
+                <p className="font-mono text-[10px] uppercase tracking-[0.2em] text-[#1F3FB0]">Optional AI workspace</p>
+                <h2 id="api-key-title" className="mt-1 font-serif text-2xl text-[#141414]">Do you have a Gemini API key?</h2>
               </div>
-              <button
-                onClick={copyInstructions}
-                className="text-xs text-[#1F3FB0] hover:underline cursor-pointer flex items-center gap-1"
-              >
-                {copied ? (
-                  <>
-                    <Check className="w-3 h-3" />
-                    <span>Copied!</span>
-                  </>
+              <button type="button" aria-label="Close API key setup" onClick={onDismiss} className="rounded p-1 text-[#4A433B] hover:bg-black/5">
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+            <p className="mt-3 text-sm leading-6 text-[#4A433B]">
+              Add a key to unlock AI questions and literature synthesis. Without one, AI stays locked; reading, importing, notes, and the rest of Marginalia remain available.
+            </p>
+            <p className="mt-3 border-l-2 border-[#1F3FB0]/40 pl-3 text-xs leading-5 text-[#4A433B]/80">
+              When you use AI, your question and the selected paper metadata and abstracts are sent to Google Gemini using your key.
+            </p>
+
+            {isDesktop ? (
+              <div className="mt-5">
+                {!hasKey ? (
+                  <button type="button" onClick={() => setHasKey(true)} className="flex w-full items-center justify-center gap-2 bg-[#1F3FB0] px-4 py-3 font-mono text-xs uppercase tracking-wider text-white hover:bg-[#18338f]">
+                    <Key className="h-4 w-4" />
+                    Yes, I have an API key
+                  </button>
                 ) : (
-                  <>
-                    <Copy className="w-3 h-3" />
-                    <span>Copy example</span>
-                  </>
+                  <form onSubmit={saveKey}>
+                    <label htmlFor="gemini-api-key" className="mb-2 block font-mono text-[10px] uppercase tracking-widest text-[#4A433B]">Gemini API key</label>
+                    <input
+                      id="gemini-api-key"
+                      type="password"
+                      value={apiKey}
+                      onChange={(event) => setApiKey(event.target.value)}
+                      autoComplete="off"
+                      spellCheck={false}
+                      required
+                      minLength={8}
+                      maxLength={512}
+                      className="w-full border border-[#141414]/25 bg-white px-3 py-3 font-mono text-sm text-[#141414] outline-none focus:border-[#1F3FB0] focus:ring-2 focus:ring-[#1F3FB0]/20"
+                      placeholder="Paste key from Google AI Studio"
+                    />
+                    <button type="submit" disabled={isSaving} className="mt-3 w-full bg-[#1F3FB0] px-4 py-3 font-mono text-xs uppercase tracking-wider text-white hover:bg-[#18338f] disabled:cursor-wait disabled:opacity-60">
+                      {isSaving ? 'Saving securely…' : 'Save key and unlock AI'}
+                    </button>
+                  </form>
                 )}
-              </button>
-            </div>
+                <p className="mt-2 text-[11px] leading-5 text-[#4A433B]/70">The installed Windows app stores this key encrypted with Windows secure storage. It is not saved in your library or browser storage.</p>
+              </div>
+            ) : (
+              <div className="mt-5 rounded border border-[#141414]/10 bg-white p-4 text-sm leading-6 text-[#4A433B]">
+                Browser development mode reads `GEMINI_API_KEY` from the local `.env` file. Set it there and restart the development server to unlock AI.
+              </div>
+            )}
 
-            <div className="text-xs text-[#4A433B]/70 mb-4">
-              <strong>Get your free API key:</strong>{' '}
-              <a 
-                href="https://aistudio.google.com/" 
-                target="_blank" 
-                rel="noopener noreferrer"
-                className="text-[#1F3FB0] hover:underline inline-flex items-center gap-1"
-              >
-                Google AI Studio <ExternalLink className="w-3 h-3" />
-              </a>
-            </div>
+            {error && <p role="alert" className="mt-3 text-sm text-red-800">{error}</p>}
 
-            <div className="flex gap-3 justify-end">
-              <button
-                onClick={dismissPrompt}
-                className="px-4 py-2 text-xs font-mono uppercase tracking-wider text-[#4A433B] hover:text-[#141414] cursor-pointer"
-              >
-                Dismiss
-              </button>
-              <a
-                href="https://aistudio.google.com/"
-                target="_blank"
-                rel="noopener noreferrer"
-                className="flex items-center gap-2 px-4 py-2 bg-[#1F3FB0] text-white text-xs font-mono uppercase tracking-wider rounded hover:bg-[#1656d6] cursor-pointer transition-colors"
-              >
-                <Key className="w-3.5 h-3.5" />
-                <span>Get API Key</span>
+            <div className="mt-5 flex flex-wrap items-center justify-between gap-3">
+              <a href="https://aistudio.google.com/" target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1.5 text-xs text-[#1F3FB0] hover:underline">
+                Get a key from Google AI Studio <ExternalLink className="h-3 w-3" />
               </a>
+              <button type="button" onClick={() => { playTactileClick(); onDismiss(); }} className="px-2 py-2 font-mono text-[10px] uppercase tracking-wider text-[#4A433B] hover:text-[#141414]">
+                No key — keep AI locked
+              </button>
             </div>
           </div>
         </div>
-      </div>
+      </section>
     </div>
   );
 };

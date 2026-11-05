@@ -34,11 +34,10 @@ service cloud.firestore {
       
       // UPDATE: User can update mutable fields on their own document
       allow update: if isOwner(uid)
-        && request.resource.data.keys().hasOnly([
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly([
           'displayName', 'photoURL', 'lastLoginAt', 'provider',
           'migratedAt', 'migratedFromGuest', 'guestMigrationId'
-        ])
-        && request.resource.data.uid == resource.data.uid;
+        ]);
       
       // DELETE: Never allowed
       allow delete: if false;
@@ -48,10 +47,8 @@ service cloud.firestore {
     // SETTINGS DOCUMENT - SINGLE PER USER
     // =========================================================================
     match /users/{uid}/settings/current {
-      // READ: Owner can read
       allow read: if isOwner(uid);
       
-      // CREATE: Owner can create
       allow create: if isOwner(uid)
         && request.resource.data.keys().hasOnly([
           'userId', 'createdAt', 'lastUpdated',
@@ -61,17 +58,15 @@ service cloud.firestore {
         ])
         && request.resource.data.userId == uid;
       
-      // UPDATE: Owner can update
       allow update: if isOwner(uid)
-        && request.resource.data.keys().hasOnly([
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly([
           'userId', 'createdAt', 'lastUpdated',
           'shelfMaterial', 'shelfSortMode', 'soundEnabled',
           'aiConfigured', 'theme', 'language',
           'notifications', 'appearance', 'lastSynced', 'version'
         ])
-        && request.resource.data.userId == uid;
+        && request.resource.data.userId == resource.data.userId;
       
-      // DELETE: Never allowed
       allow delete: if false;
     }
     
@@ -79,17 +74,15 @@ service cloud.firestore {
     // PAPERS COLLECTION
     // =========================================================================
     match /users/{uid}/papers/{paperId} {
-      // READ: User can read their own papers
       allow get: if isOwner(uid);
       allow list: if isOwner(uid);
       
-      // CREATE: User can create their own papers
       allow create: if isOwner(uid)
         && paperId == request.resource.data.id
         && request.resource.data.keys().hasOnly([
           'id', 'doi', 'title', 'shortTitle', 'authors', 'year', 'journal',
           'volume', 'issue', 'pages', 'publisher', 'url', 'abstract',
-          'methodology', 'findings', 'keywords', 'categories', 'tags',
+          'methodology', 'findings', 'keywords', 'categories', 'collectionIds', 'tags',
           'rating', 'priority', 'readingStatus', 'createdAt', 'updatedAt',
           'source', 'storagePath', 'pageCount', 'type', 'status',
           'evaluation', 'field', 'secondaryCategories', 'importance'
@@ -99,27 +92,29 @@ service cloud.firestore {
         && request.resource.data.title is string
         && request.resource.data.title.size() > 0
         && request.resource.data.authors is list
+        && (!('collectionIds' in request.resource.data)
+          || (request.resource.data.collectionIds is list
+            && request.resource.data.collectionIds.size() <= 50))
         && request.resource.data.year is string
         && request.resource.data.year.size() > 0
         && request.resource.data.readingStatus in ['inbox', 'to_read', 'reading', 'paused', 'completed', 'archive', 'reference_only']
         && request.resource.data.priority in ['low', 'medium', 'high']
         && request.resource.data.source in ['manual', 'doi', 'import', 'user', 'migrated'];
       
-      // UPDATE: User can update their own papers
       allow update: if isOwner(uid)
-        && paperId == request.resource.data.id
-        && request.resource.data.keys().hasOnly([
+        && paperId == resource.data.id
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly([
           'id', 'doi', 'title', 'shortTitle', 'authors', 'year', 'journal',
           'volume', 'issue', 'pages', 'publisher', 'url', 'abstract',
-          'methodology', 'findings', 'keywords', 'categories', 'tags',
+          'methodology', 'findings', 'keywords', 'categories', 'collectionIds', 'tags',
           'rating', 'priority', 'readingStatus', 'updatedAt',
           'source', 'storagePath', 'pageCount', 'type', 'status',
           'evaluation', 'field', 'secondaryCategories', 'importance'
         ])
-        && request.resource.data.id == resource.data.id
-        && request.resource.data.createdAt == resource.data.createdAt;
+        && (!('collectionIds' in request.resource.data)
+          || (request.resource.data.collectionIds is list
+            && request.resource.data.collectionIds.size() <= 50));
       
-      // DELETE: User can delete their own papers
       allow delete: if isOwner(uid);
     }
     
@@ -127,11 +122,9 @@ service cloud.firestore {
     // PAPERS > PDFs SUBCOLLECTION
     // =========================================================================
     match /users/{uid}/papers/{paperId}/PDFs/{pdfId} {
-      // READ: User can read PDF metadata for their papers
       allow get: if isOwner(uid);
       allow list: if isOwner(uid);
       
-      // CREATE: User can create PDF metadata
       allow create: if isOwner(uid)
         && pdfId == request.resource.data.id
         && request.resource.data.keys().hasOnly([
@@ -147,10 +140,7 @@ service cloud.firestore {
         && request.resource.data.fileSize <= 100 * 1024 * 1024
         && request.resource.data.mimeType == 'application/pdf';
       
-      // UPDATE: User can update their PDF metadata
-      allow update: if isOwner(uid) && pdfId == request.resource.data.id;
-      
-      // DELETE: User can delete their PDF metadata
+      allow update: if isOwner(uid) && pdfId == resource.data.id;
       allow delete: if isOwner(uid);
     }
     
@@ -158,11 +148,9 @@ service cloud.firestore {
     // ANNOTATIONS SUBCOLLECTION
     // =========================================================================
     match /users/{uid}/papers/{paperId}/annotations/{annotationId} {
-      // READ
       allow get: if isOwner(uid);
       allow list: if isOwner(uid);
       
-      // CREATE
       allow create: if isOwner(uid)
         && annotationId == request.resource.data.id
         && request.resource.data.keys().hasOnly([
@@ -176,10 +164,7 @@ service cloud.firestore {
         && request.resource.data.type in ['highlight', 'comment', 'question', 'insight', 'quote', 'tag']
         && request.resource.data.color in ['yellow', 'blue', 'green', 'pink', 'orange'];
       
-      // UPDATE
-      allow update: if isOwner(uid) && annotationId == request.resource.data.id;
-      
-      // DELETE
+      allow update: if isOwner(uid) && annotationId == resource.data.id;
       allow delete: if isOwner(uid);
     }
     
@@ -187,11 +172,9 @@ service cloud.firestore {
     // VOLUMES COLLECTION
     // =========================================================================
     match /users/{uid}/volumes/{volumeId} {
-      // READ
       allow get: if isOwner(uid);
       allow list: if isOwner(uid);
       
-      // CREATE
       allow create: if isOwner(uid)
         && volumeId == request.resource.data.id
         && request.resource.data.keys().hasOnly([
@@ -205,10 +188,7 @@ service cloud.firestore {
         && request.resource.data.position >= 1
         && request.resource.data.paperIds is list;
       
-      // UPDATE
-      allow update: if isOwner(uid) && volumeId == request.resource.data.id;
-      
-      // DELETE
+      allow update: if isOwner(uid) && volumeId == resource.data.id;
       allow delete: if isOwner(uid);
     }
     
@@ -216,11 +196,9 @@ service cloud.firestore {
     // COLLECTIONS COLLECTION
     // =========================================================================
     match /users/{uid}/collections/{collectionId} {
-      // READ
       allow get: if isOwner(uid);
       allow list: if isOwner(uid);
       
-      // CREATE
       allow create: if isOwner(uid)
         && collectionId == request.resource.data.id
         && request.resource.data.keys().hasOnly([
@@ -232,10 +210,7 @@ service cloud.firestore {
         && request.resource.data.name.size() > 0
         && request.resource.data.type in ['folder', 'project', 'topic', 'course', 'smart'];
       
-      // UPDATE
-      allow update: if isOwner(uid) && collectionId == request.resource.data.id;
-      
-      // DELETE
+      allow update: if isOwner(uid) && collectionId == resource.data.id;
       allow delete: if isOwner(uid);
     }
     
@@ -243,11 +218,9 @@ service cloud.firestore {
     // COLLECTIONS > MEMBERSHIPS SUBCOLLECTION
     // =========================================================================
     match /users/{uid}/collections/{collectionId}/memberships/{membershipId} {
-      // READ
       allow get: if isOwner(uid);
       allow list: if isOwner(uid);
       
-      // CREATE
       allow create: if isOwner(uid)
         && request.resource.data.keys().hasOnly([
           'paperId', 'volumeId', 'addedAt', 'addedBy', 'position'
@@ -255,10 +228,7 @@ service cloud.firestore {
         && (request.resource.data.paperId is string || request.resource.data.volumeId is string)
         && request.resource.data.addedAt is timestamp;
       
-      // UPDATE
       allow update: if isOwner(uid);
-      
-      // DELETE
       allow delete: if isOwner(uid);
     }
     
@@ -266,11 +236,9 @@ service cloud.firestore {
     // READING PROGRESS COLLECTION
     // =========================================================================
     match /users/{uid}/readingProgress/{paperId} {
-      // READ
       allow get: if isOwner(uid);
       allow list: if isOwner(uid);
       
-      // CREATE
       allow create: if isOwner(uid)
         && paperId == request.resource.data.paperId
         && request.resource.data.keys().hasOnly([
@@ -288,16 +256,9 @@ service cloud.firestore {
         && request.resource.data.percent is int
         && request.resource.data.percent >= 0 && request.resource.data.percent <= 100;
       
-      // UPDATE
       allow update: if isOwner(uid)
-        && paperId == request.resource.data.paperId
-        && request.resource.data.keys().hasOnly([
-          'paperId', 'status', 'currentPage', 'totalPages', 'percent',
-          'lastReadAt', 'completedAt', 'interruptedAt', 
-          'sessions'
-        ]);
+        && paperId == resource.data.paperId;
       
-      // DELETE
       allow delete: if isOwner(uid);
     }
     
@@ -305,11 +266,9 @@ service cloud.firestore {
     // NOTES COLLECTION
     // =========================================================================
     match /users/{uid}/notes/{noteId} {
-      // READ
       allow get: if isOwner(uid);
       allow list: if isOwner(uid);
       
-      // CREATE
       allow create: if isOwner(uid)
         && noteId == request.resource.data.id
         && request.resource.data.keys().hasOnly([
@@ -322,16 +281,9 @@ service cloud.firestore {
         && request.resource.data.content is string
         && request.resource.data.type in ['paper', 'general', 'synthesis', 'question'];
       
-      // UPDATE
       allow update: if isOwner(uid)
-        && noteId == request.resource.data.id
-        && request.resource.data.keys().hasOnly([
-          'title', 'content', 'type', 'paperIds', 
-          'collectionIds', 'tags', 'synthesisData',
-          'updatedAt'
-        ]);
+        && noteId == resource.data.id;
       
-      // DELETE
       allow delete: if isOwner(uid);
     }
     
@@ -339,11 +291,9 @@ service cloud.firestore {
     // HIGHLIGHTS COLLECTION
     // =========================================================================
     match /users/{uid}/highlights/{highlightId} {
-      // READ
       allow get: if isOwner(uid);
       allow list: if isOwner(uid);
       
-      // CREATE
       allow create: if isOwner(uid)
         && highlightId == request.resource.data.id
         && request.resource.data.keys().hasOnly([
@@ -356,10 +306,7 @@ service cloud.firestore {
         && request.resource.data.pageNumber >= 1
         && request.resource.data.color in ['yellow', 'blue', 'green', 'pink', 'orange'];
       
-      // UPDATE
-      allow update: if isOwner(uid) && highlightId == request.resource.data.id;
-      
-      // DELETE
+      allow update: if isOwner(uid) && highlightId == resource.data.id;
       allow delete: if isOwner(uid);
     }
     
@@ -367,11 +314,9 @@ service cloud.firestore {
     // BOOKMARKS COLLECTION
     // =========================================================================
     match /users/{uid}/bookmarks/{bookmarkId} {
-      // READ
       allow get: if isOwner(uid);
       allow list: if isOwner(uid);
       
-      // CREATE
       allow create: if isOwner(uid)
         && request.resource.data.keys().hasOnly([
           'id', 'paperId', 'pageNumber', 'label', 'createdAt'
@@ -382,10 +327,7 @@ service cloud.firestore {
         && request.resource.data.pageNumber is int
         && request.resource.data.pageNumber >= 1;
       
-      // UPDATE
       allow update: if isOwner(uid);
-      
-      // DELETE
       allow delete: if isOwner(uid);
     }
     
@@ -393,11 +335,9 @@ service cloud.firestore {
     // GOALS COLLECTION
     // =========================================================================
     match /users/{uid}/goals/{goalId} {
-      // READ
       allow get: if isOwner(uid);
       allow list: if isOwner(uid);
       
-      // CREATE
       allow create: if isOwner(uid)
         && request.resource.data.keys().hasOnly([
           'id', 'type', 'label', 'target', 'period', 'current',
@@ -410,22 +350,17 @@ service cloud.firestore {
         && request.resource.data.current >= 0
         && request.resource.data.period in ['daily', 'weekly', 'monthly'];
       
-      // UPDATE
       allow update: if isOwner(uid);
-      
-      // DELETE
       allow delete: if isOwner(uid);
     }
     
     // =========================================================================
-    // ACTIVITIES COLLECTION (APPEND-ONLY)
+    // ACTIVITIES COLLECTION (OWNER-ONLY, CLEARABLE WITH LIBRARY RESET)
     // =========================================================================
     match /users/{uid}/activities/{activityId} {
-      // READ
       allow get: if isOwner(uid);
       allow list: if isOwner(uid);
       
-      // CREATE
       allow create: if isOwner(uid)
         && request.resource.data.keys().hasOnly([
           'id', 'type', 'description', 'timestamp', 
@@ -439,19 +374,19 @@ service cloud.firestore {
         && request.resource.data.description is string
         && request.resource.data.description.size() > 0
         && request.resource.data.timestamp is timestamp;
-      
-      // NO UPDATE OR DELETE - append-only
+
+      // Users may clear their own activity history through the local reset flow.
+      // Cross-user deletes remain denied by the owner check.
+      allow delete: if isOwner(uid);
     }
     
     // =========================================================================
     // MIGRATIONS COLLECTION
     // =========================================================================
     match /users/{uid}/migrations/{migrationId} {
-      // READ
       allow get: if isOwner(uid);
       allow list: if isOwner(uid);
       
-      // CREATE
       allow create: if isOwner(uid)
         && migrationId == request.resource.data.id
         && request.resource.data.keys().hasOnly([
@@ -468,10 +403,7 @@ service cloud.firestore {
         && request.resource.data.progress >= 0 && request.resource.data.progress <= 100
         && request.resource.data.startedAt is timestamp;
       
-      // UPDATE
-      allow update: if isOwner(uid) && migrationId == request.resource.data.id;
-      
-      // DELETE
+      allow update: if isOwner(uid) && migrationId == resource.data.id;
       allow delete: if isOwner(uid);
     }
   }

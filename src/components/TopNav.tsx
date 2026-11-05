@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import {
   Volume2,
   VolumeX,
@@ -17,7 +17,7 @@ import {
   Palette,
   User,
   LogOut,
-  UserPlus,
+  ChevronDown,
 } from 'lucide-react';
 import { playTactileClick } from '../utils/sound';
 
@@ -45,8 +45,7 @@ interface TopNavProps {
   onOpenCustomizer?: () => void;
   onLogout?: () => void;
   onOpenProfile?: () => void;
-  onOpenSettings?: () => void;
-  onOpenApiKeys?: () => void;
+  onOpenAccountSettings?: () => void;
   searchQuery?: string;
   onSearchChange?: (query: string) => void;
   soundEnabled: boolean;
@@ -54,7 +53,6 @@ interface TopNavProps {
   readingNowCount?: number;
   totalNotesCount?: number;
   isGuest?: boolean;
-  onMigrateGuest?: () => void;
 }
 
 export const TopNav: React.FC<TopNavProps> = ({
@@ -69,8 +67,7 @@ export const TopNav: React.FC<TopNavProps> = ({
   onOpenCustomizer,
   onLogout,
   onOpenProfile,
-  onOpenSettings,
-  onOpenApiKeys,
+  onOpenAccountSettings,
   searchQuery = '',
   onSearchChange,
   soundEnabled,
@@ -78,9 +75,27 @@ export const TopNav: React.FC<TopNavProps> = ({
   readingNowCount = 0,
   totalNotesCount = 0,
   isGuest = false,
-  onMigrateGuest,
 }) => {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [accountMenuOpen, setAccountMenuOpen] = useState(false);
+  const accountMenuRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const closeOnOutsideClick = (event: MouseEvent) => {
+      if (accountMenuRef.current && !accountMenuRef.current.contains(event.target as Node)) {
+        setAccountMenuOpen(false);
+      }
+    };
+    const closeOnEscape = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') setAccountMenuOpen(false);
+    };
+    document.addEventListener('mousedown', closeOnOutsideClick);
+    document.addEventListener('keydown', closeOnEscape);
+    return () => {
+      document.removeEventListener('mousedown', closeOnOutsideClick);
+      document.removeEventListener('keydown', closeOnEscape);
+    };
+  }, []);
 
   const handleSelectView = (view: MainViewMode) => {
     playTactileClick();
@@ -135,24 +150,13 @@ export const TopNav: React.FC<TopNavProps> = ({
     },
   ];
 
-  // Get initials for avatar
-  const getInitials = (name: string) => {
-    return name
-      .split(' ')
-      .map((n) => n[0])
-      .join('')
-      .slice(0, 2)
-      .toUpperCase();
-  };
-
-  // Truncate long names for display
   const displayName = researcherName.length > 15
     ? researcherName.substring(0, 12) + '...'
     : researcherName;
 
   return (
     <header className="w-full bg-[#EDE8DD]/95 backdrop-blur-md sticky top-0 z-40 border-b border-[#1E1A16]/10">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-3 flex items-center justify-between gap-4">
+      <div className="max-w-7xl 2xl:max-w-[1800px] mx-auto px-3 sm:px-6 lg:px-8 py-3 flex items-center justify-between gap-2 sm:gap-4">
         {/* LEFT: Marginalia Brand Identity */}
         <div
           className="flex items-center gap-3 sm:gap-3.5 cursor-pointer shrink-0 group"
@@ -173,7 +177,7 @@ export const TopNav: React.FC<TopNavProps> = ({
 
         {/* CENTER: Clean Editorial Navigation Links */}
         <nav
-          className="hidden md:flex items-center gap-5 lg:gap-7"
+          className="hidden 2xl:flex items-center gap-4 2xl:gap-6"
           aria-label="Primary Workspace Navigation"
         >
           {navItems.map((item) => (
@@ -194,11 +198,11 @@ export const TopNav: React.FC<TopNavProps> = ({
           ))}
         </nav>
 
-        {/* RIGHT: Minimal Search Input + Bindery Customizer + Profile Pill + Avatar */}
-        <div className="flex items-center gap-2.5 sm:gap-3 shrink-0">
+        {/* RIGHT: Search, useful tools, and one profile control */}
+        <div className="flex items-center gap-1.5 sm:gap-3 shrink-0">
           {/* Minimal Underlined Search Bar - visible on all screens */}
           {onSearchChange && (
-            <div className="flex items-center gap-1.5 border-b border-[#1A1612]/25 focus-within:border-[#1A1612] pb-1 px-1 w-40 lg:w-56 transition-colors">
+            <div className="hidden lg:flex items-center gap-1.5 border-b border-[#1A1612]/25 focus-within:border-[#1A1612] pb-1 px-1 w-24 md:w-32 xl:w-56 transition-colors">
               <Search className="w-3.5 h-3.5 text-[#5A534A] shrink-0" />
               <input
                 type="text"
@@ -229,7 +233,7 @@ export const TopNav: React.FC<TopNavProps> = ({
                 playTactileClick();
                 onOpenCustomizer();
               }}
-              className="p-1.5 text-[#4A433B] hover:text-[#141414] transition-colors cursor-pointer"
+              className="hidden sm:flex p-1.5 text-[#4A433B] hover:text-[#141414] transition-colors cursor-pointer"
               title="Customize Bookshelf Wood, Book Spines & Covers"
               aria-label="Customize Bookshelf Appearance"
             >
@@ -271,7 +275,7 @@ export const TopNav: React.FC<TopNavProps> = ({
           <button
             type="button"
             onClick={onToggleSound}
-            className="p-1.5 text-[#4A433B] hover:text-[#141414] transition-colors cursor-pointer"
+            className="hidden sm:flex p-1.5 text-[#4A433B] hover:text-[#141414] transition-colors cursor-pointer"
             title={
               soundEnabled ? 'Mute tactile archive audio' : 'Enable tactile archive audio'
             }
@@ -284,74 +288,63 @@ export const TopNav: React.FC<TopNavProps> = ({
             )}
           </button>
 
-          {/* Profile Pill - Always visible on all screen sizes */}
-          <div className="flex items-center gap-2 px-3 py-2 bg-[#1F3FB0]/10 border border-[#1F3FB0]/30 rounded-full mr-1 hover:bg-[#1F3FB0]/15 transition-colors">
-            <User className="w-3.5 h-3.5 text-[#1F3FB0]" />
-            <span className="text-xs sm:text-sm font-serif font-medium text-[#1F3FB0] leading-tight">
-              {displayName || 'Guest'}
-            </span>
-            {onLogout && (
-              <button
-                type="button"
-                onClick={onLogout}
-                className="p-1 bg-red-100 text-red-800 text-xs font-medium rounded-full hover:bg-red-200 transition-colors cursor-pointer"
-                title="Sign Out"
-                aria-label="Sign Out"
-              >
-                <LogOut className="w-3 h-3" />
-              </button>
-            )}
-            {onOpenProfile && (
-              <button
-                type="button"
-                onClick={() => onOpenProfile()}
-                className="p-1 bg-white text-[#1F3FB0] text-xs font-medium rounded-full hover:bg-[#EDEBE6] transition-colors cursor-pointer"
-                title="Open Profile"
-                aria-label="Open Profile"
-              >
-                <X className="w-2.5 h-2.5 text-[#1F3FB0]" />
-              </button>
-            )}
-          </div>
-
-          {/* Guest Mode Button - visible for guest users */}
-          {isGuest && onMigrateGuest && (
+          <div className="relative" ref={accountMenuRef}>
             <button
               type="button"
               onClick={() => {
                 playTactileClick();
-                onMigrateGuest();
+                setAccountMenuOpen((open) => !open);
               }}
-              className="hidden sm:flex items-center gap-1.5 px-2.5 py-1.5 text-[#1F3FB0] hover:text-[#1656d6] bg-[#1F3FB0]/10 border border-[#1F3FB0]/30 rounded-full text-xs font-medium transition-colors cursor-pointer"
-              title="Create Account to Save Your Library"
-              aria-label="Migrate Guest Data to Account"
+              className="flex items-center gap-2 px-3 py-2 bg-[#1F3FB0]/10 border border-[#1F3FB0]/30 rounded-full hover:bg-[#1F3FB0]/15 transition-colors text-[#1F3FB0] cursor-pointer"
+              aria-expanded={accountMenuOpen}
+              aria-haspopup="menu"
+              aria-label={isGuest ? 'Open guest account menu' : 'Open account menu'}
             >
-              <UserPlus className="w-3 h-3" />
-              <span>Sign Up</span>
+              <User className="w-3.5 h-3.5" />
+              <span className="max-w-36 truncate text-xs sm:text-sm font-serif font-medium leading-tight">{isGuest ? 'Guest' : (displayName || 'Account')}</span>
+              <ChevronDown className="w-3.5 h-3.5" />
             </button>
-          )}
-
-          {/* Researcher Profile Portrait / Avatar Button */}
-          <button
-            type="button"
-            onClick={() => {
-              playTactileClick();
-              onOpenProfile ? onOpenProfile() : onOpenAbout();
-            }}
-            className="w-8 h-8 sm:w-9 sm:h-9 rounded-full bg-gradient-to-br from-[#1F3FB0] to-[#1668D1] text-[#EFECE4] border-2 border-[#141414]/30 flex items-center justify-center font-serif text-sm font-bold shadow-md hover:scale-105 hover:shadow-lg hover:rotate-1.5 transition-all cursor-pointer shrink-0"
-            title={`${researcherName} — Researcher Profile & CV`}
-            aria-label="Open Researcher Profile"
-          >
-            <span className="shadow-sm">
-              {getInitials(researcherName) || 'AZ'}
-            </span>
-          </button>
+            {accountMenuOpen && (
+              <div role="menu" className="absolute right-0 mt-2 w-56 rounded border border-[#141414]/20 bg-[#F4F1EA] p-1 shadow-xl z-50">
+                <div className="px-3 py-2 border-b border-[#141414]/10">
+                  <div className="text-xs font-mono uppercase tracking-wider text-[#77736B]">{isGuest ? 'Guest session' : 'Signed in'}</div>
+                  {!isGuest && <div className="mt-1 truncate text-sm font-serif text-[#141414]">{researcherName}</div>}
+                </div>
+                <button
+                  role="menuitem"
+                  type="button"
+                  onClick={() => {
+                    playTactileClick();
+                    setAccountMenuOpen(false);
+                    onOpenProfile ? onOpenProfile() : onOpenAbout();
+                  }}
+                  className="w-full px-3 py-2 text-left text-sm font-serif hover:bg-[#E7E4DC] cursor-pointer"
+                >{isGuest ? 'Sign in or create account' : 'Research profile'}</button>
+                {!isGuest && onOpenAccountSettings && (
+                  <button
+                    role="menuitem"
+                    type="button"
+                    onClick={() => { setAccountMenuOpen(false); onOpenAccountSettings(); }}
+                    className="w-full px-3 py-2 text-left text-sm font-serif hover:bg-[#E7E4DC] cursor-pointer"
+                  >Account settings</button>
+                )}
+                {onLogout && (
+                  <button
+                    role="menuitem"
+                    type="button"
+                    onClick={() => { setAccountMenuOpen(false); onLogout(); }}
+                    className="w-full border-t border-[#141414]/10 mt-1 px-3 py-2 text-left text-sm font-serif text-rose-700 hover:bg-rose-50 cursor-pointer"
+                  ><LogOut className="inline w-3.5 h-3.5 mr-2" />Sign out</button>
+                )}
+              </div>
+            )}
+          </div>
 
           {/* Mobile Menu Trigger */}
           <button
             type="button"
             onClick={() => setMobileMenuOpen((o) => !o)}
-            className="sm:hidden p-1.5 border border-[#141414]/20 text-[#141414] cursor-pointer"
+            className="2xl:hidden p-1.5 border border-[#141414]/20 text-[#141414] cursor-pointer"
             aria-label="Toggle Navigation Menu"
           >
             {mobileMenuOpen ? (
@@ -365,7 +358,7 @@ export const TopNav: React.FC<TopNavProps> = ({
 
       {/* Mobile Navigation Drawer */}
       {mobileMenuOpen && (
-        <div className="md:hidden border-t border-[#141414]/15 bg-[#F4F1EA] p-4 shadow-xl space-y-3 animate-fadeIn">
+        <div className="2xl:hidden border-t border-[#141414]/15 bg-[#F4F1EA] p-4 shadow-xl space-y-3 animate-fadeIn">
           {onSearchChange && (
             <div className="flex items-center gap-2 border border-[#141414]/20 bg-white px-3 py-2">
               <Search className="w-3.5 h-3.5 text-[#77736B]" />
@@ -449,19 +442,6 @@ export const TopNav: React.FC<TopNavProps> = ({
             )}
           </div>
 
-          {/* Mobile Sign Out Option */}
-          {onLogout && (
-            <button
-              onClick={() => {
-                playTactileClick();
-                onLogout();
-              }}
-              className="w-full flex items-center gap-2 p-2 text-red-600 hover:bg-red-50 rounded transition-colors cursor-pointer text-xs font-mono"
-            >
-              <LogOut className="w-4 h-4" />
-              <span>Sign Out</span>
-            </button>
-          )}
         </div>
       )}
     </header>

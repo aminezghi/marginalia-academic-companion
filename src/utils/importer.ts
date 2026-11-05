@@ -1,4 +1,4 @@
-// Comprehensive Bibliographic Parsing & Import Utilities (BibTeX, RIS, CSV, DOI)
+// Bibliographic imports for BibTeX, RIS, and common Scopus / Web of Science CSV exports.
 
 export interface ParsedRecord {
   title: string;
@@ -8,176 +8,266 @@ export interface ParsedRecord {
   volume?: string;
   issue?: string;
   pages?: string;
+  pageCount?: number;
   doi?: string;
+  url?: string;
   abstract?: string;
   type?: string;
   keywords?: string[];
   publisher?: string;
 }
 
-// Parse BibTeX text content
-export function parseBibTeX(bibtexText: string): ParsedRecord[] {
-  const records: ParsedRecord[] = [];
-  const entries = bibtexText.split(/@(?=[a-zA-Z]+[\s\t]*\{)/g);
-
-  for (const entry of entries) {
-    if (!entry.trim()) continue;
-    try {
-      const typeMatch = entry.match(/^([a-zA-Z]+)[\s\t]*\{/);
-      const entryType = typeMatch ? typeMatch[1].toLowerCase() : 'article';
-
-      const getField = (field: string): string => {
-        const regex = new RegExp(`${field}[\\s\\t]*=[\\s\\t]*[{"']([\\s\\S]*?)[}"'],?`, 'i');
-        const match = entry.match(regex);
-        return match ? match[1].replace(/[\r\n\t]+/g, ' ').trim() : '';
-      };
-
-      const title = getField('title');
-      if (!title) continue;
-
-      const authorStr = getField('author');
-      const authors = authorStr
-        ? authorStr
-            .split(/\s+and\s+/i)
-            .map((a) => a.trim().replace(/[{}]/g, ''))
-            .filter(Boolean)
-        : ['Unknown Author'];
-
-      const year = getField('year') || new Date().getFullYear().toString();
-      const journal = getField('journal') || getField('booktitle') || '';
-      const volume = getField('volume');
-      const issue = getField('number') || getField('issue');
-      const pages = getField('pages');
-      const doi = getField('doi');
-      const abstract = getField('abstract');
-      const publisher = getField('publisher');
-      const keywords = getField('keywords')
-        ? getField('keywords')
-            .split(/[,;]/)
-            .map((k) => k.trim())
-            .filter(Boolean)
-        : [];
-
-      records.push({
-        title: title.replace(/[{}]/g, ''),
-        authors,
-        year,
-        journal,
-        volume,
-        issue,
-        pages,
-        doi,
-        abstract,
-        publisher,
-        keywords,
-        type: entryType === 'article' ? 'Journal Article' : entryType === 'inproceedings' ? 'Conference Paper' : 'Book / Chapter',
-      });
-    } catch {
-      // Continue next entry
-    }
-  }
-
-  return records;
+const clean = (value: string) => value.trim().replace(/^\uFEFF/, '').replace(/[{}]/g, '').trim();
+const normalizeDoi = (value: string) => clean(value).replace(/^https?:\/\/(dx\.)?doi\.org\//i, '').replace(/^doi:\s*/i, '');
+const splitAuthors = (value: string) => value.split(/\s+and\s+|\s*;\s*/i).map(clean).filter(Boolean);
+function countNumberedPages(value: string): number | undefined {
+  const range = value.match(/(?:^|\D)(\d+)\s*[-–—]+\s*(\d+)(?:$|\D)/);
+  if (!range) return undefined;
+  const first = Number(range[1]), last = Number(range[2]);
+  return last >= first && last - first < 10000 ? last - first + 1 : undefined;
 }
 
-// Parse RIS format text
-export function parseRIS(risText: string): ParsedRecord[] {
-  const records: ParsedRecord[] = [];
-  const items = risText.split(/ER\s+-/g);
-
-  for (const item of items) {
-    if (!item.trim()) continue;
-    const lines = item.split(/\r?\n/);
-    let title = '';
-    const authors: string[] = [];
-    let year = '';
-    let journal = '';
-    let volume = '';
-    let issue = '';
-    let pages = '';
-    let doi = '';
-    let abstract = '';
-    const keywords: string[] = [];
-
-    for (const line of lines) {
-      const match = line.match(/^([A-Z0-9]{2})\s+-\s+(.*)$/);
-      if (!match) continue;
-      const tag = match[1];
-      const val = match[2].trim();
-
-      if (tag === 'TI' || tag === 'T1') title = val;
-      else if (tag === 'AU' || tag === 'A1') authors.push(val);
-      else if (tag === 'PY' || tag === 'Y1') year = val.slice(0, 4);
-      else if (tag === 'JO' || tag === 'JF' || tag === 'T2') journal = val;
-      else if (tag === 'VL') volume = val;
-      else if (tag === 'IS') issue = val;
-      else if (tag === 'SP') pages = val;
-      else if (tag === 'DO') doi = val;
-      else if (tag === 'AB' || tag === 'N2') abstract = val;
-      else if (tag === 'KW') keywords.push(val);
+// BibTeX values can contain nested braces, quoted strings, or escaped commas.
+function bibField(entry: string, field: string): string {
+  const match = new RegExp(`\\b${field}\\s*=\\s*`, 'i').exec(entry);
+  if (!match) return '';
+  let index = match.index + match[0].length;
+  while (/\s/.test(entry[index] || '')) index++;
+  const opener = entry[index];
+  if (opener === '{') {
+    let depth = 1;
+    const start = ++index;
+    for (; index < entry.length && depth; index++) {
+      if (entry[index] === '\\') { index++; continue; }
+      if (entry[index] === '{') depth++;
+      else if (entry[index] === '}') depth--;
     }
-
-    if (title) {
-      records.push({
-        title,
-        authors: authors.length ? authors : ['Unknown Author'],
-        year: year || new Date().getFullYear().toString(),
-        journal,
-        volume,
-        issue,
-        pages,
-        doi,
-        abstract,
-        keywords,
-        type: 'Journal Article',
-      });
-    }
+    return clean(entry.slice(start, depth ? index : index - 1).replace(/\s+/g, ' '));
   }
-
-  return records;
+  if (opener === '"') {
+    const start = ++index;
+    for (; index < entry.length; index++) {
+      if (entry[index] === '\\') { index++; continue; }
+      if (entry[index] === '"') break;
+    }
+    return clean(entry.slice(start, index).replace(/\s+/g, ' '));
+  }
+  return clean(entry.slice(index).split(/[},\n]/, 1)[0]);
 }
 
-// Parse simple CSV bibliographic text
-export function parseCSV(csvText: string): ParsedRecord[] {
-  const lines = csvText.split(/\r?\n/).filter((l) => l.trim().length > 0);
-  if (lines.length < 2) return [];
-
-  // Parse header
-  const headers = lines[0].split(',').map((h) => h.replace(/["']/g, '').trim().toLowerCase());
+export function parseBibTeX(input: string): ParsedRecord[] {
   const records: ParsedRecord[] = [];
-
-  const titleIdx = headers.findIndex((h) => h.includes('title'));
-  const authorIdx = headers.findIndex((h) => h.includes('author'));
-  const yearIdx = headers.findIndex((h) => h.includes('year') || h.includes('date'));
-  const journalIdx = headers.findIndex((h) => h.includes('journal') || h.includes('source') || h.includes('publication'));
-  const doiIdx = headers.findIndex((h) => h.includes('doi'));
-  const abstractIdx = headers.findIndex((h) => h.includes('abstract'));
-
-  for (let i = 1; i < lines.length; i++) {
-    // Basic comma splitter respecting quotes
-    const row = lines[i].match(/(".*?"|[^",\s]+)(?=\s*,|\s*$)/g) || lines[i].split(',');
-    const cleanRow = row.map((c) => c.replace(/^"|"$/g, '').trim());
-
-    const title = titleIdx !== -1 ? cleanRow[titleIdx] : cleanRow[0];
+  const starts = [...input.matchAll(/@([a-zA-Z]+)\s*[({]/g)];
+  for (let entryIndex = 0; entryIndex < starts.length; entryIndex++) {
+    const start = starts[entryIndex].index ?? 0;
+    const end = starts[entryIndex + 1]?.index ?? input.length;
+    const entry = input.slice(start, end);
+    const title = bibField(entry, 'title');
     if (!title) continue;
-
-    const authorStr = authorIdx !== -1 ? cleanRow[authorIdx] : '';
-    const authors = authorStr ? authorStr.split(/[;]/).map((a) => a.trim()) : ['Investigator'];
-    const year = yearIdx !== -1 ? cleanRow[yearIdx] : new Date().getFullYear().toString();
-    const journal = journalIdx !== -1 ? cleanRow[journalIdx] : '';
-    const doi = doiIdx !== -1 ? cleanRow[doiIdx] : '';
-    const abstract = abstractIdx !== -1 ? cleanRow[abstractIdx] : '';
-
+    const authors = splitAuthors(bibField(entry, 'author'));
+    const doi = normalizeDoi(bibField(entry, 'doi'));
     records.push({
       title,
-      authors,
-      year: year.slice(0, 4),
-      journal,
-      doi,
-      abstract,
-      type: 'Journal Article',
+      authors: authors.length ? authors : ['Unknown Author'],
+      year: bibField(entry, 'year').match(/\d{4}/)?.[0] || '',
+      journal: bibField(entry, 'journal') || bibField(entry, 'journaltitle') || bibField(entry, 'booktitle') || undefined,
+      volume: bibField(entry, 'volume') || undefined,
+      issue: bibField(entry, 'number') || bibField(entry, 'issue') || undefined,
+      pages: bibField(entry, 'pages') || undefined,
+      pageCount: countNumberedPages(bibField(entry, 'pages')),
+      doi: doi || undefined,
+      url: bibField(entry, 'url') || bibField(entry, 'link') || (doi ? `https://doi.org/${doi}` : undefined),
+      abstract: bibField(entry, 'abstract') || undefined,
+      publisher: bibField(entry, 'publisher') || undefined,
+      keywords: bibField(entry, 'keywords').split(/[,;]/).map(clean).filter(Boolean),
+      type: starts[entryIndex][1].toLowerCase() === 'inproceedings' ? 'Conference Paper' : 'Journal Article',
     });
   }
-
   return records;
+}
+
+export function parseRIS(input: string): ParsedRecord[] {
+  const records: ParsedRecord[] = [];
+  const items = input.replace(/^\uFEFF/, '').split(/(?:^|\r?\n)ER\s+-\s*\r?\n?/i);
+  for (const item of items) {
+    const fields = new Map<string, string[]>();
+    let lastTag = '';
+    for (const line of item.split(/\r?\n/)) {
+      const match = line.match(/^([A-Z0-9]{2})\s+-\s+(.*)$/i);
+      if (match) {
+        lastTag = match[1].toUpperCase();
+        fields.set(lastTag, [...(fields.get(lastTag) || []), match[2].trim()]);
+      } else if (lastTag && /^\s{2,}\S/.test(line)) {
+        const values = fields.get(lastTag)!;
+        values[values.length - 1] += ` ${line.trim()}`;
+      }
+    }
+    const get = (...tags: string[]) => tags.flatMap(tag => fields.get(tag) || []).join(' ').trim();
+    const title = get('TI', 'T1');
+    if (!title) continue;
+    const doi = normalizeDoi(get('DO'));
+    records.push({
+      title, authors: get('AU', 'A1').split(/\s*;\s*/).filter(Boolean),
+      year: (get('PY', 'Y1', 'DA').match(/\d{4}/) || [''])[0],
+      journal: get('JO', 'JF', 'T2') || undefined, volume: get('VL') || undefined,
+      issue: get('IS') || undefined,
+      pages: [get('SP'), get('EP')].filter(Boolean).join('-') || get('PG') || undefined,
+      pageCount: countNumberedPages([get('SP'), get('EP')].filter(Boolean).join('-') || get('PG')),
+      doi: doi || undefined, url: get('UR') || (doi ? `https://doi.org/${doi}` : undefined),
+      abstract: get('AB', 'N2') || undefined,
+      keywords: [...(fields.get('KW') || []), ...(fields.get('DE') || [])],
+      type: get('TY') || 'Journal Article',
+    });
+  }
+  return records.map(record => ({ ...record, authors: record.authors.length ? record.authors : ['Unknown Author'] }));
+}
+
+// Web of Science "Plain Text" export uses two-letter field tags without RIS hyphens.
+export function parseWebOfScienceText(input: string): ParsedRecord[] {
+  const records: ParsedRecord[] = [];
+  const entries = input.replace(/^\uFEFF/, '').split(/(?:^|\r?\n)ER\s*\r?\n?/i);
+  for (const entry of entries) {
+    const fields = new Map<string, string[]>();
+    let lastTag = '';
+    for (const line of entry.split(/\r?\n/)) {
+      const match = line.match(/^([A-Z]{2})\s{1,3}(.*)$/);
+      if (match) {
+        lastTag = match[1].toUpperCase();
+        fields.set(lastTag, [...(fields.get(lastTag) || []), match[2].trim()]);
+      } else if (lastTag && /^\s+\S/.test(line)) {
+        const values = fields.get(lastTag)!;
+        values[values.length - 1] += ` ${line.trim()}`;
+      }
+    }
+    const get = (...tags: string[]) => tags.flatMap(tag => fields.get(tag) || []).join(' ').trim();
+    const title = get('TI');
+    if (!title) continue;
+    const doi = normalizeDoi(get('DI'));
+    const pages = [get('BP'), get('EP')].filter(Boolean).join('-') || get('AR');
+    const keywordText = [get('DE'), get('ID')].filter(Boolean).join(';');
+    records.push({
+      title, authors: (fields.get('AU') || []).map(clean).filter(Boolean),
+      year: (get('PY').match(/\d{4}/) || [''])[0], journal: get('SO') || undefined,
+      volume: get('VL') || undefined, issue: get('IS') || undefined, pages: pages || undefined,
+      pageCount: countNumberedPages(pages), doi: doi || undefined,
+      url: doi ? `https://doi.org/${doi}` : undefined,
+      abstract: get('AB') || undefined,
+      keywords: keywordText.split(';').map(clean).filter(Boolean),
+      type: get('DT') || 'Journal Article',
+    });
+  }
+  return records.map(record => ({ ...record, authors: record.authors.length ? record.authors : ['Unknown Author'] }));
+}
+
+// EndNote tagged exports (.enw) use percent-prefixed field names.
+export function parseEndNoteTagged(input: string): ParsedRecord[] {
+  const records: ParsedRecord[] = [];
+  let fields = new Map<string, string[]>();
+  let lastTag = '';
+  const finish = () => {
+    const get = (...tags: string[]) => tags.flatMap(tag => fields.get(tag) || []).join(' ').trim();
+    const title = get('T');
+    if (title) {
+      const doi = normalizeDoi(get('R'));
+      const pages = get('P');
+      records.push({
+        title, authors: (fields.get('A') || []).map(clean).filter(Boolean),
+        year: get('D').match(/\d{4}/)?.[0] || '', journal: get('J') || undefined,
+        volume: get('V') || undefined, issue: get('N') || undefined, pages: pages || undefined,
+        pageCount: countNumberedPages(pages), doi: doi || undefined,
+        url: get('U') || (doi ? `https://doi.org/${doi}` : undefined),
+        abstract: get('X') || undefined,
+        keywords: (fields.get('K') || []).map(clean).filter(Boolean),
+        type: get('0') || 'Journal Article',
+      });
+    }
+    fields = new Map();
+  };
+  for (const line of input.replace(/^\uFEFF/, '').split(/\r?\n/)) {
+    const match = line.match(/^%([A-Z0-9])\s+(.*)$/i);
+    if (match) {
+      const tag = match[1].toUpperCase();
+      if (tag === '0' && fields.size) finish();
+      lastTag = tag;
+      fields.set(tag, [...(fields.get(tag) || []), match[2].trim()]);
+    } else if (lastTag && /^\s+\S/.test(line)) {
+      const values = fields.get(lastTag)!;
+      values[values.length - 1] += ` ${line.trim()}`;
+    }
+  }
+  finish();
+  return records.map(record => ({ ...record, authors: record.authors.length ? record.authors : ['Unknown Author'] }));
+}
+
+// RFC 4180 style CSV/TSV reader (quotes, escaped quotes, and multiline cells).
+function parseDelimited(input: string): string[][] {
+  const sample = input.slice(0, 4096);
+  const delimiter = (sample.match(/\t/g)?.length || 0) > (sample.match(/,/g)?.length || 0) ? '\t' : ',';
+  const rows: string[][] = [];
+  let row: string[] = [], cell = '', quoted = false;
+  const text = input.replace(/^\uFEFF/, '');
+  for (let i = 0; i < text.length; i++) {
+    const char = text[i];
+    if (quoted && char === '"' && text[i + 1] === '"') { cell += '"'; i++; }
+    else if (char === '"') quoted = !quoted;
+    else if (!quoted && char === delimiter) { row.push(cell.trim()); cell = ''; }
+    else if (!quoted && (char === '\n' || char === '\r')) {
+      if (char === '\r' && text[i + 1] === '\n') i++;
+      row.push(cell.trim());
+      if (row.some(value => value)) rows.push(row);
+      row = []; cell = '';
+    } else cell += char;
+  }
+  row.push(cell.trim());
+  if (row.some(value => value)) rows.push(row);
+  return rows;
+}
+
+export function parseCSV(input: string): ParsedRecord[] {
+  const rows = parseDelimited(input);
+  if (rows.length < 2) return [];
+  const headers = rows[0].map(header => clean(header).toLowerCase().replace(/[_-]+/g, ' '));
+  const find = (...names: string[]) => headers.findIndex(header => names.some(name => header === name || header.includes(name)));
+  const titleIndex = find('article title', 'document title', 'title', 'ti');
+  if (titleIndex < 0) return [];
+  const index = {
+    authors: find('authors', 'author(s)'), year: find('publication year', 'year', 'date'),
+    journal: find('source title', 'journal', 'publication name', 'publication'),
+    volume: find('volume'), issue: find('issue', 'number'), pageCount: find('page count'), start: find('page start', 'start page'),
+    end: find('page end', 'end page'), pages: find('pages', 'page range'), doi: find('doi'),
+    url: find('link', 'url', 'document url', 'article url'), abstract: find('abstract'),
+    keywords: find('author keywords', 'keywords'), publisher: find('publisher'),
+    type: find('document type', 'type'),
+  };
+  const at = (row: string[], key: keyof typeof index) => index[key] >= 0 ? (row[index[key]] || '').trim() : '';
+  return rows.slice(1).flatMap(row => {
+    const title = (row[titleIndex] || '').trim();
+    if (!title) return [];
+    const doi = normalizeDoi(at(row, 'doi'));
+    const authorsRaw = at(row, 'authors');
+    const authors = authorsRaw.split(/\s*;\s*|\|/).map(clean).filter(Boolean);
+    const start = at(row, 'start'), end = at(row, 'end');
+    const pageText = at(row, 'pages') || (start ? `${start}${end ? `-${end}` : ''}` : '');
+    const declaredPageCount = Number(at(row, 'pageCount'));
+    return [{
+      title, authors: authors.length ? authors : ['Unknown Author'],
+      year: at(row, 'year').match(/\d{4}/)?.[0] || '',
+      journal: at(row, 'journal') || undefined, volume: at(row, 'volume') || undefined,
+      issue: at(row, 'issue') || undefined, pages: pageText || undefined,
+      pageCount: declaredPageCount > 0 ? declaredPageCount : countNumberedPages(pageText), doi: doi || undefined,
+      url: at(row, 'url') || (doi ? `https://doi.org/${doi}` : undefined),
+      abstract: at(row, 'abstract') || undefined,
+      keywords: at(row, 'keywords').split(/[;|]/).map(clean).filter(Boolean),
+      publisher: at(row, 'publisher') || undefined, type: at(row, 'type') || 'Journal Article',
+    }];
+  });
+}
+
+export function parseBibliographyFile(filename: string, content: string): ParsedRecord[] {
+  const extension = filename.toLowerCase().split('.').pop();
+  if (extension === 'bib' || content.includes('@') && content.includes('{')) return parseBibTeX(content);
+  if (/(?:^|\n)PT\s{1,3}J\b/i.test(content) && /(?:^|\n)TI\s{1,3}/i.test(content)) return parseWebOfScienceText(content);
+  if (extension === 'enw' || /(?:^|\n)%0\s+/i.test(content)) return parseEndNoteTagged(content);
+  if (extension === 'ris' || /(?:^|\n)TY\s+-/i.test(content)) return parseRIS(content);
+  return parseCSV(content);
 }

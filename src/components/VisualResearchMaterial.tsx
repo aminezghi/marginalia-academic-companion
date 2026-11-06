@@ -80,7 +80,7 @@ export const VisualResearchMaterial: React.FC<VisualResearchMaterialProps> = ({ 
                   <circle cx="80" cy="100" r={selectedCluster === 'pos' ? 24 : 18} fill={selectedCluster === 'pos' ? '#1F3FB0' : '#3B82F6'} fillOpacity="0.15" stroke="#1F3FB0" strokeWidth="2" />
                   <circle cx="80" cy="100" r="4" fill="#1F3FB0" />
                   <text x="80" y="104" textAnchor="middle" fontSize="9" fontWeight="bold" fontFamily="monospace" fill="#141414">POS</text>
-                  <text x="80" y="132" textAnchor="middle" fontSize="8" fontFamily="monospace" fill="#77736B">Scanner Data</text>
+                  <text x="80" y="132" textAnchor="middle" fontSize="8" fontFamily="monospace" fill="#77736B">Observational Stream</text>
                 </g>
 
                 <g className="cursor-pointer" onClick={() => setSelectedCluster('loyalty')}>
@@ -115,7 +115,7 @@ export const VisualResearchMaterial: React.FC<VisualResearchMaterialProps> = ({ 
             <div className="bg-white p-3 border border-[#141414]/15 text-xs font-mono">
               <span className="text-[#1F3FB0] font-semibold">SYNTHESIS NOTE: </span>
               {selectedCluster === 'pos' &&
-                'High-frequency point-of-sale scanner data effectively removes survey recall bias, capturing instant weekly substitution between high-carbon and plant-based staples.'}
+                'High-frequency observational data effectively removes survey recall bias, capturing instant weekly substitution between empirical behavior patterns.'}
               {selectedCluster === 'loyalty' &&
                 'Loyalty card logs enable multi-year household panel tracking, uncovering how inflation shocks disproportionately trigger organic-to-conventional downgrades.'}
               {selectedCluster === 'wearables' &&

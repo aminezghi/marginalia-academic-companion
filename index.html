@@ -17,6 +17,15 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:ital,wght@0,400;0,500;0,600;1,400&family=Inter+Tight:wght@300;400;500;600;700&family=Newsreader:ital,opsz,wght@0,6..72,300..700;1,6..72,300..700&display=swap" rel="stylesheet">
+    <script>
+      (function() {
+        try {
+          if (localStorage.getItem('marginalia_night_mode') === 'true') {
+            document.documentElement.classList.add('theme-nocturne', 'dark');
+          }
+        } catch (e) {}
+      })();
+    </script>
   </head>
   <body class="bg-[#EDEBE6] text-[#141414] antialiased selection:bg-[#1F3FB0] selection:text-white overflow-x-hidden min-h-screen">
     <div id="root"></div>

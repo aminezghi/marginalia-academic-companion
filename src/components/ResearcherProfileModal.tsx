@@ -139,7 +139,7 @@ export const ResearcherProfileModal: React.FC<ResearcherProfileModalProps> = ({
               INTELLECTUAL IDENTITY
             </span>
             <p className="font-serif text-base text-[#141414]/90 leading-relaxed max-w-prose text-justify">
-              A multidisciplinary researcher working at the rigorous intersection of consumer behaviour, data science, and sustainable food systems. My research program investigates consumer trend modeling and promotes healthier, more sustainable dietary choices through empirical behavioural science, big data analytics (scanner receipts, retail loyalty streams), and immersive experimental technologies (Virtual Reality and head-mounted eye tracking).
+              A multidisciplinary researcher working at the rigorous intersection of data science, behavioural modeling, and empirical methodology. My research investigates computational trend modeling, evidence synthesis, and experimental decision analytics using high-frequency data streams, immersive technologies, and statistical inference.
             </p>
           </div>
 

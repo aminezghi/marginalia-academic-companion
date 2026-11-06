@@ -308,6 +308,57 @@ html.dark ::-webkit-scrollbar-thumb:hover {
   background: rgba(212, 175, 55, 0.6);
 }
 
+/* 5. Comprehensive Nocturne Form Controls, Modals & Surface Consistency */
+html.theme-nocturne input:not([type="checkbox"]):not([type="radio"]),
+html.dark input:not([type="checkbox"]):not([type="radio"]),
+html.theme-nocturne textarea,
+html.dark textarea,
+html.theme-nocturne select,
+html.dark select {
+  background-color: #1E1B17 !important;
+  color: #EDE8DF !important;
+  border-color: rgba(237, 232, 223, 0.16) !important;
+}
+
+html.theme-nocturne input::placeholder,
+html.dark input::placeholder,
+html.theme-nocturne textarea::placeholder,
+html.dark textarea::placeholder {
+  color: #8C8275 !important;
+}
+
+html.theme-nocturne [role="dialog"] > div,
+html.dark [role="dialog"] > div {
+  border-color: rgba(237, 232, 223, 0.18) !important;
+  box-shadow: 0 25px 60px -15px rgba(0, 0, 0, 0.85) !important;
+}
+
+html.theme-nocturne table,
+html.dark table {
+  color: #EDE8DF !important;
+}
+
+html.theme-nocturne th,
+html.dark th {
+  background-color: #181614 !important;
+  color: #C0B7A8 !important;
+  border-color: rgba(237, 232, 223, 0.12) !important;
+}
+
+html.theme-nocturne td,
+html.dark td {
+  border-color: rgba(237, 232, 223, 0.08) !important;
+}
+
+html.theme-nocturne code,
+html.dark code,
+html.theme-nocturne pre,
+html.dark pre {
+  background-color: #161412 !important;
+  color: #E2CE9F !important;
+  border-color: rgba(237, 232, 223, 0.12) !important;
+}
+
 @media (prefers-reduced-motion: reduce) {
   * {
     animation-duration: 0.01ms !important;

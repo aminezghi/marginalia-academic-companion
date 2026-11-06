@@ -61,7 +61,7 @@ export const ArticleEditorModal: React.FC<ArticleEditorModalProps> = ({
   const [researchQuestions, setResearchQuestions] = useState<string[]>(['']);
   const [methods, setMethods] = useState<string>('Field experiment, quantitative analysis');
   const [tools, setTools] = useState<string>('Python, R, Survey platform');
-  const [dataSources, setDataSources] = useState<string>('Retail scanner logs & participant surveys');
+  const [dataSources, setDataSources] = useState<string>('Empirical observations & validated instruments');
   const [sample, setSample] = useState<string>('N = 250 experimental participants');
   const [keyFindings, setKeyFindings] = useState<string[]>(['']);
   const [contributions, setContributions] = useState<string[]>(['']);
@@ -364,7 +364,7 @@ export const ArticleEditorModal: React.FC<ArticleEditorModalProps> = ({
                   required
                   value={title}
                   onChange={(e) => setTitle(e.target.value)}
-                  placeholder="e.g. Encouraging Sustainable Dietary Transitions Through High-Frequency Scanner Telemetry"
+                  placeholder="e.g. Longitudinal Dynamics of Open Scientific Collaboration Across Global Repositories"
                   className="w-full p-2.5 bg-white border border-[#141414]/25 text-sm font-serif leading-snug focus:border-[#1F3FB0] focus:outline-hidden"
                 />
               </div>
@@ -536,7 +536,7 @@ export const ArticleEditorModal: React.FC<ArticleEditorModalProps> = ({
                   type="text"
                   value={dataSources}
                   onChange={(e) => setDataSources(e.target.value)}
-                  placeholder="Retail receipts, eAmbrosia, PubMed"
+                  placeholder="e.g. Crossref, OpenAlex, arXiv, PubMed"
                   className="w-full p-2 bg-white border border-[#141414]/25"
                 />
               </div>

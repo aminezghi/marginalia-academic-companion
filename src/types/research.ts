@@ -16,6 +16,8 @@ export type ShelfWoodMaterial =
   | 'oak'
   | 'mahogany'
   | 'ebony'
+  | 'oxford_noir'
+  | 'scandinavian_birch'
   | 'light_wood'
   | 'paper';
 

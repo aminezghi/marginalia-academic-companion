@@ -88,21 +88,21 @@ export const INITIAL_ACTIVITY_LOGS: ActivityLog[] = [];
 export const METHODOLOGY_CARDS: MethodologyCard[] = [
   {
     id: 'method-01',
-    title: 'Big Data Analytics',
-    category: 'COMPUTATIONAL CONSUMER SCIENCE',
+    title: 'Computational Data Science & Statistical Inference',
+    category: 'QUANTITATIVE & COMPUTATIONAL SCIENCE',
     associatedTechniques: [
-      'Scanner data analysis',
-      'Loyalty card telemetry',
-      'Passive digital footprints',
-      'Web scraping & Crawl4AI',
+      'Hypothesis testing & regression',
+      'Time-series econometric modeling',
+      'Bayesian statistical inference',
+      'Automated data ingestion & ETL',
     ],
     scientificApplications:
-      'Leverages high-frequency transactional point-of-sale streams and store loyalty cards to observe continuous, longitudinal consumer grocery purchases without survey recall fatigue or social desirability bias.',
+      'Formulates reproducible statistical pipelines and empirical econometric models from large-scale multi-dimensional observation data without self-reporting biases.',
     workflow: [
-      'Raw barcode & receipt ingest from retail partners',
-      'Entity linkage to national nutrient and carbon composition databases',
-      'Filtering seasonal noise and price promotion confounding',
-      'Time-series trajectory modeling for dietary transitions',
+      'Raw data ingest & schema validation from empirical repositories',
+      'Entity linkage and longitudinal record alignment',
+      'Filtering confounding variables and seasonal noise',
+      'Statistical model estimation and cross-validation benchmarking',
     ],
     tools: ['Python', 'Pandas', 'DuckDB', 'PySpark', 'SQL'],
     associatedResearchIds: [],
@@ -114,14 +114,14 @@ export const METHODOLOGY_CARDS: MethodologyCard[] = [
     associatedTechniques: [
       'PRISMA 2020 guidelines',
       'Bibliometric co-word networks',
-      'Thematic synthesis',
-      'Risk of bias assessment',
+      'Thematic qualitative synthesis',
+      'Risk-of-bias assessment',
     ],
     scientificApplications:
-      'Produces exhaustive, reproducible syntheses of emergent interdisciplinary scientific domains at the intersection of computational data science and nutritional consumer behavior.',
+      'Produces exhaustive, reproducible syntheses of emergent interdisciplinary scientific domains across global bibliographic databases.',
     workflow: [
       'Protocol registration & search string formulation',
-      'Multi-database harvesting (Scopus, WoS, PubMed)',
+      'Multi-database harvesting (Scopus, WoS, OpenAlex, PubMed)',
       'Blind multi-reviewer screening & conflict resolution',
       'Extraction matrix & bibliometric network modeling',
     ],
@@ -130,107 +130,107 @@ export const METHODOLOGY_CARDS: MethodologyCard[] = [
   },
   {
     id: 'method-03',
-    title: 'Behavioural Science & Nudging',
-    category: 'BEHAVIOURAL ECONOMICS',
+    title: 'Controlled Experimental Design & Hypothesis Testing',
+    category: 'EMPIRICAL & EXPERIMENTAL DESIGN',
     associatedTechniques: [
-      'Field experiments',
-      'Shelf-availability manipulation',
-      'Symbolic point incentives',
-      'Choice architecture',
+      'Factorial intervention design',
+      'Randomized control groups',
+      'Choice architecture & nudging',
+      'Counterfactual causal modeling',
     ],
     scientificApplications:
-      'Evaluates low-cost, non-coercive environmental modifications that facilitate healthier and more sustainable consumer food choices in real-world retail settings, especially solidarity supermarkets.',
+      'Evaluates environmental and informational interventions to quantify causal mechanisms in real-world and digital decision environments.',
     workflow: [
-      'Baseline purchasing pattern audit via barcode scanners',
-      'Factorial intervention design (e.g., availability vs incentives)',
-      'In-store deployment with unobtrusive logging',
-      'Post-washout observation to test durable habit formation',
+      'Baseline behavioral pattern audit and power analysis',
+      'Factorial intervention design and control allocation',
+      'Field deployment with unobtrusive logging',
+      'Difference-in-differences econometric analysis',
     ],
     tools: ['R', 'Difference-in-Differences Econometrics', 'Qualtrics'],
     associatedResearchIds: [],
   },
   {
     id: 'method-04',
-    title: 'Immersive Technologies (VR & Eye Tracking)',
-    category: 'CONSUMER NEUROSCIENCE',
+    title: 'Immersive Technologies & Visual Attention Analysis',
+    category: 'EXPERIMENTAL TECHNOLOGIES',
     associatedTechniques: [
-      'Virtual Reality 3D supermarkets',
-      'High-frequency eye tracking (120Hz)',
+      'Virtual Reality 3D environments',
+      'High-frequency eye tracking telemetry',
       'Fixation duration & sequence analysis',
       'Areas of Interest (AOI) heatmapping',
     ],
     scientificApplications:
-      'Uncovers the subconscious visual attention mechanisms that govern front-of-pack label processing and food choice deliberation before conscious verbalization occurs.',
+      'Uncovers the subconscious visual attention mechanisms and cognitive deliberation heuristics before conscious verbalization occurs.',
     workflow: [
-      'Photorealistic 3D retail environment modeling in Unity',
+      'Photorealistic 3D environment modeling in Unity',
       'Binocular gaze calibration and parallax validation',
-      'Automated AOI detection on packaging and shelf levels',
-      'Multi-modal correlation of gaze fixations with purchase decisions',
+      'Automated AOI detection on stimulus interfaces',
+      'Multi-modal correlation of gaze fixations with decisions',
     ],
     tools: ['Unity 3D', 'HTC Vive Pro Eye', 'Tobii Pro', 'Python (SciPy)'],
     associatedResearchIds: [],
   },
   {
     id: 'method-05',
-    title: 'Data Science & Automated Web Scraping',
+    title: 'Data Science & Automated Web Harvesters',
     category: 'DATA ENGINEERING & SCRAPING',
     associatedTechniques: [
-      'Crawl4AI asynchronous scraping',
+      'Asynchronous web crawling',
       'Schema normalization',
-      'Dynamic JS rendering bypass',
-      'Relational modeling',
+      'Dynamic JS rendering capture',
+      'Relational data modeling',
     ],
     scientificApplications:
-      'Builds comprehensive, reliable scientific databases from heterogeneous online registries (such as European Commission eAmbrosia and EUIPO databases) for agro-food policy analysis.',
+      'Builds comprehensive, reliable scientific databases from heterogeneous online registries and APIs for computational research analysis.',
     workflow: [
       'Target registry structure audit and endpoint discovery',
       'Asynchronous crawler deployment with rate-limiting and error recovery',
       'Data cleaning, deduplication, and entity resolution',
       'Export to relational SQL and geospatial Parquet formats',
     ],
-    tools: ['Crawl4AI', 'Playwright', 'PostgreSQL', 'DuckDB', 'BeautifulSoup'],
+    tools: ['Python', 'Playwright', 'PostgreSQL', 'DuckDB', 'BeautifulSoup'],
     associatedResearchIds: [],
   },
   {
     id: 'method-06',
-    title: 'Geospatial & Geographical Indications Research',
-    category: 'FOOD HERITAGE & GIS',
+    title: 'Geospatial & Regional Spatial Analysis',
+    category: 'GEOSPATIAL & REGIONAL SCIENCE',
     associatedTechniques: [
       'GIS boundary polygon matching',
-      'Terroir spatial distribution analysis',
-      'PDO/PGI verification audits',
-      'Regional supply chain mapping',
+      'Spatial distribution & clustering',
+      'Administrative boundary mapping',
+      'Territorial supply network modeling',
     ],
     scientificApplications:
-      'Structures the spatial and legal footprints of European Geographical Indications, analyzing the territorial distribution, heritage protection, and economic resilience of localized food systems.',
+      'Structures the spatial and administrative footprints of regional phenomena, analyzing territorial distribution, spatial clustering, and economic resilience.',
     workflow: [
-      'Harvesting legal municipal specifications from EU gazettes',
+      'Harvesting municipal and territorial specifications',
       'Mapping administrative boundaries with NUTS / LAU coordinates',
-      'Spatial correlation with agro-climatic conditions and biodiversity',
-      'Public dashboard and policy visualization generation',
+      'Spatial correlation with environmental and socio-economic indicators',
+      'Interactive cartographic dashboard and map visualization',
     ],
     tools: ['QGIS', 'GeoPandas', 'Shapely', 'Leaflet / Mapbox'],
     associatedResearchIds: [],
   },
   {
     id: 'method-07',
-    title: 'Agro-Biodiversity & Value Chain Analysis',
-    category: 'SUSTAINABLE AGRI-FOOD SYSTEMS',
+    title: 'Reproducible Computational Pipelines & Open Science',
+    category: 'REPRODUCIBILITY & DATA MANAGEMENT',
     associatedTechniques: [
-      'Value chain mapping',
-      'Sensory and hedonic product evaluation',
-      'Multi-stakeholder workshops',
-      'Socio-economic impact modeling',
+      'FAIR data stewardship',
+      'Containerized execution pipelines',
+      'Version-controlled analytical code',
+      'Open repository deposit & DOI linkage',
     ],
     scientificApplications:
-      'Investigates the complete path from farm to fork for neglected and climate-resilient crop varieties (legumes, ancient grains), resolving processing bottlenecks and consumer acceptance barriers.',
+      'Ensures complete scientific transparency, auditable code execution, and long-term preservation of scientific research assets.',
     workflow: [
-      'Agronomic field trial data integration',
-      'Stakeholder interviews along processing and logistics chains',
-      'Consumer hedonic sensory testing of reformulated staple foods',
-      'Synthesis of regional policy recommendations for agricultural subsidies',
+      'Analytical workflow dependency containerization',
+      'Open schema metadata annotation',
+      'Public registry deposit with persistent identifiers',
+      'Automated peer-verification testing suite',
     ],
-    tools: ['SPSS', 'R', 'Value Chain Matrix Analysis', 'Sensory Profiling'],
+    tools: ['Docker', 'Git', 'Zenodo', 'OpenAlex API', 'Snakemake'],
     associatedResearchIds: [],
   },
 ];
@@ -268,29 +268,29 @@ export const RESEARCHER_PROFILE: ResearcherProfile = {
   ],
   researchPillars: [
     {
-      title: 'Sustainable Food Systems & Consumption',
+      title: 'Computational Data Science & Empirical Modeling',
       description:
-        'Investigating the socio-economic determinants of healthy and sustainable dietary transitions, focusing on planetary-health diets, whole grains, and agrobiodiversity.',
+        'Developing reproducible quantitative pipelines, Bayesian econometric models, and high-dimensional analytical frameworks for complex empirical phenomena.',
     },
     {
-      title: 'Consumer Behaviour & Behavioural Economics',
+      title: 'Evidence Synthesis & Systematic Literature Reviews',
       description:
-        'Applying nudging interventions, field experimentation, and choice architecture in physical retail (such as solidarity social supermarkets) and digital e-grocery stores.',
+        'Conducting PRISMA-compliant systematic reviews, bibliometric network mapping, and evidence synthesis across interdisciplinary scientific repositories.',
     },
     {
-      title: 'Big Data Analytics & Consumer Trend Mapping',
+      title: 'Controlled Experimental Design & Behavioral Analytics',
       description:
-        'Harnessing transactional POS scanner streams, loyalty card logs, and computational web scraping to detect longitudinal food purchasing patterns without self-reporting biases.',
+        'Formulating factorial interventions, choice architecture, and field experiments to identify causal mechanisms in digital and physical environments.',
     },
     {
-      title: 'Immersive Technologies & Consumer Neuroscience',
+      title: 'Immersive Technologies & Visual Cognitive Analytics',
       description:
-        'Utilizing photorealistic Virtual Reality and high-frequency head-mounted eye-tracking to capture unconscious visual attention, gaze fixation, and decision heuristics in food environments.',
+        'Utilizing 3D virtual environments and high-frequency eye-tracking telemetry to measure visual attention, fixation sequences, and decision heuristics.',
     },
     {
-      title: 'Geographical Indications & Food Heritage',
+      title: 'Open Science, Reproducibility & Data Stewardship',
       description:
-        'Structuring pan-European databases of PDO and PGI certifications, evaluating digital transparency tools, and fostering sustainable value chain resilience.',
+        'Advancing FAIR data principles, containerized analytical execution, and transparent open-access scientific dissemination.',
     },
   ],
   currentEnvironment: [
@@ -298,13 +298,13 @@ export const RESEARCHER_PROFILE: ResearcherProfile = {
       institution: 'University of Parma (Italy)',
       role: 'MSCA PhD Fellow — FutureData4EU',
       details:
-        'Conducting doctoral research across the Department of Food and Drug and Department of Economics and Management, advancing data-driven consumer food models.',
+        'Conducting doctoral research across the Department of Food and Drug and Department of Economics and Management, advancing data-driven consumer and computational models.',
     },
     {
       institution: 'CITA (Centro de Investigación y Tecnología Agroalimentaria de Aragón), Zaragoza (Spain)',
       role: 'Visiting Research Period',
       details:
-        'Collaborative research exchange focusing on consumer economics, discrete choice experiments, and sustainable agricultural value chains in the Mediterranean basin.',
+        'Collaborative research exchange focusing on consumer economics, discrete choice experiments, and empirical decision models.',
     },
   ],
   previousExperience: [
@@ -313,13 +313,13 @@ export const RESEARCHER_PROFILE: ResearcherProfile = {
       project: 'Sustainable Agri-Food Systems',
       period: '2021–2023',
       focus:
-        'Research on sustainable agricultural value chains, biodiversity preservation, and socio-economic value chain development for climate-resilient agriculture.',
+        'Research on quantitative data analysis, socio-economic modeling, and value chain development.',
     },
   ],
   technicalExpertise: [
     {
       category: 'Programming & Data Engineering',
-      skills: ['Python', 'Crawl4AI', 'Pandas / NumPy', 'SQL / PostgreSQL', 'DuckDB', 'Playwright', 'Git'],
+      skills: ['Python', 'Pandas / NumPy', 'SQL / PostgreSQL', 'DuckDB', 'Playwright', 'Git'],
     },
     {
       category: 'Statistical & Econometric Analysis',
@@ -331,7 +331,7 @@ export const RESEARCHER_PROFILE: ResearcherProfile = {
     },
     {
       category: 'Scientific Domains',
-      skills: ['Food Systems', 'Behavioural Economics', 'Geographical Indications', 'Agrobiodiversity', 'PRISMA Reviews'],
+      skills: ['Data Science', 'Behavioural Modeling', 'Evidence Synthesis', 'Experimental Design', 'Open Science'],
     },
   ],
   verifiedLinks: [

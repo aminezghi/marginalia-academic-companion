@@ -22,7 +22,7 @@ import {
 } from '../data/bookAppearanceData';
 import { playPaperRustle, playTactileClick } from '../utils/sound';
 import { ChevronLeft, ChevronRight, Palette } from 'lucide-react';
-import { VintageBankersLamp } from './VintageBankersLamp';
+import { VintageBankersLamp, BankersLampStyle } from './VintageBankersLamp';
 
 interface ShelfArchiveProps {
   items: ResearchItem[];
@@ -35,6 +35,8 @@ interface ShelfArchiveProps {
   categoryAppearances?: Record<string, CollectionAppearance>;
   isNightMode?: boolean;
   onToggleNightMode?: () => void;
+  lampStyle?: BankersLampStyle;
+  onChangeLampStyle?: (style: BankersLampStyle) => void;
   onCursorChange?: (state: {
     isHoveringActive?: boolean;
     label?: string;
@@ -76,6 +78,8 @@ export const ShelfArchive: React.FC<ShelfArchiveProps> = ({
   categoryAppearances = DEFAULT_CATEGORY_APPEARANCES,
   isNightMode = false,
   onToggleNightMode,
+  lampStyle,
+  onChangeLampStyle,
   onCursorChange,
 }) => {
   const containerRef = useRef<HTMLDivElement>(null);
@@ -313,7 +317,7 @@ export const ShelfArchive: React.FC<ShelfArchiveProps> = ({
       const maxIdx = Math.max(0, items.length - 1);
       const currentPos = springPosition.get();
 
-      if (totalDragPixelsRef.current > 6) {
+      if (totalDragPixelsRef.current > 14) {
         const projectedPos =
           currentPos + releaseVelocity * INERTIA_TIME_CONSTANT;
         const targetBook = Math.max(
@@ -611,6 +615,8 @@ export const ShelfArchive: React.FC<ShelfArchiveProps> = ({
         <VintageBankersLamp
           isLit={isNightMode}
           onToggle={onToggleNightMode || (() => {})}
+          lampStyle={lampStyle}
+          onChangeLampStyle={onChangeLampStyle}
         />
       </div>
 
@@ -773,7 +779,7 @@ export const ShelfArchive: React.FC<ShelfArchiveProps> = ({
           return (
             <motion.div
               key={item.id}
-              className="absolute bottom-0 preserve-3d transition-[filter] duration-200"
+              className="absolute bottom-0 preserve-3d transition-[filter] duration-200 cursor-pointer"
               style={{
                 width: `${currentWidth.toFixed(1)}px`,
                 height: `${currentHeight.toFixed(1)}px`,
@@ -787,8 +793,8 @@ export const ShelfArchive: React.FC<ShelfArchiveProps> = ({
               }}
               onClick={(e) => {
                 e.stopPropagation();
-                // Ignore if user dragged the shelf with the mouse
-                if (totalDragPixelsRef.current > 6) return;
+                // Ignore if user made an intentional dragging motion on the shelf
+                if (totalDragPixelsRef.current > 16) return;
                 playPaperRustle();
 
                 // When the center book is already pulled out and being inspected,
@@ -804,10 +810,16 @@ export const ShelfArchive: React.FC<ShelfArchiveProps> = ({
                     prev === item.id ? null : item.id
                   );
                 } else {
-                  // Pull clicked book to the center and into the pulled-out inspection state
+                  // Direct selection: instantly report to parent, pull forward and smoothly glide shelf
+                  onSelectIndex(index);
                   setPulledOutBookId(item.id);
                   animateShelfToBook(index);
                 }
+              }}
+              onDoubleClick={(e) => {
+                e.stopPropagation();
+                playTactileClick();
+                (onReadPaper || onOpenDetail)(item);
               }}
               onMouseEnter={() => {
                 if (!isMobile) {
@@ -852,7 +864,8 @@ export const ShelfArchive: React.FC<ShelfArchiveProps> = ({
                       prev === item.id ? null : item.id
                     );
                   } else {
-                    // Pull clicked book to the center and into the pulled-out inspection state
+                    // Select clicked book, pull forward and smoothly glide shelf
+                    onSelectIndex(index);
                     setPulledOutBookId(item.id);
                     animateShelfToBook(index);
                   }

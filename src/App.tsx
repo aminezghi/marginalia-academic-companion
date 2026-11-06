@@ -33,6 +33,7 @@ import { DEFAULT_CATEGORY_APPEARANCES } from './data/bookAppearanceData';
 import { TopNav, MainViewMode } from './components/TopNav';
 import { CategoryTabs } from './components/CategoryTabs';
 import { ShelfArchive } from './components/ShelfArchive';
+import { BankersLampStyle } from './components/VintageBankersLamp';
 import { ResearchCaption } from './components/ResearchCaption';
 import { VintageSkeleton } from './components/VintageSkeleton';
 import { CommandPalette } from './components/CommandPalette';
@@ -172,6 +173,18 @@ export default function App() {
     if (typeof window === 'undefined') return false;
     return localStorage.getItem('marginalia_night_mode') === 'true';
   });
+
+  const [lampStyle, setLampStyle] = useState<BankersLampStyle>(() => {
+    if (typeof window === 'undefined') return 'emerald';
+    return (localStorage.getItem('marginalia_lamp_style') as BankersLampStyle) || 'emerald';
+  });
+
+  const handleUpdateLampStyle = useCallback((style: BankersLampStyle) => {
+    setLampStyle(style);
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('marginalia_lamp_style', style);
+    }
+  }, []);
 
   useEffect(() => {
     if (isNightMode) {
@@ -1547,21 +1560,58 @@ export default function App() {
             {/* Central 3D Physical Vintage Bookshelf */}
             <div className="flex-1 flex flex-col justify-center my-auto">
               {filteredShelfBooks.length === 0 ? (
-                <section className="mx-auto my-12 max-w-lg border border-[#141414]/15 bg-[#F4F2ED] p-8 text-center shadow-sm" aria-label="Empty library">
-                  <BookOpen className="mx-auto mb-3 h-8 w-8 text-[#1F3FB0]" />
-                  <h2 className="font-serif text-2xl text-[#141414]">Your library is empty</h2>
-                  <p className="mt-2 font-mono text-xs leading-relaxed text-[#77736B]">
-                    Welcome to Marginalia. Import research papers (DOI, PDF, BibTeX/RIS) or load sample books to explore the vintage bookshelf.
+                <section
+                  className={`mx-auto my-12 max-w-lg border p-8 text-center shadow-sm transition-colors ${
+                    isNightMode
+                      ? 'bg-[#181614] border-[#2E2822] text-[#EDE8DF]'
+                      : 'bg-[#F4F2ED] border-[#141414]/15 text-[#141414]'
+                  }`}
+                  aria-label="Empty library"
+                >
+                  <BookOpen className={`mx-auto mb-3 h-8 w-8 ${isNightMode ? 'text-[#D4AF37]' : 'text-[#1F3FB0]'}`} />
+                  <h2 className={`font-serif text-2xl ${isNightMode ? 'text-[#EDE8DF]' : 'text-[#141414]'}`}>
+                    Your library is empty
+                  </h2>
+                  <p className={`mt-2 font-mono text-xs leading-relaxed ${isNightMode ? 'text-[#9E9689]' : 'text-[#77736B]'}`}>
+                    Welcome to Marginalia. Import research papers (DOI, PDF, BibTeX/RIS) or load curated open-access samples to explore the vintage bookshelf.
                   </p>
                   <div className="mt-5 flex flex-wrap justify-center gap-2">
-                    <button type="button" onClick={() => setIsImportModalOpen(true)} className="bg-[#141414] px-4 py-2 font-mono text-xs uppercase text-white hover:bg-[#1F3FB0] transition-colors cursor-pointer">
+                    <button
+                      type="button"
+                      onClick={() => setIsImportModalOpen(true)}
+                      className={`px-4 py-2 font-mono text-xs uppercase transition-colors cursor-pointer ${
+                        isNightMode
+                          ? 'bg-[#D4AF37] text-[#121110] hover:bg-[#F3C74D] font-semibold'
+                          : 'bg-[#141414] text-white hover:bg-[#1F3FB0]'
+                      }`}
+                    >
                       Add Papers
                     </button>
-                    <button type="button" onClick={() => setIsTopicModalOpen(true)} className="border border-[#141414]/25 bg-white px-4 py-2 font-mono text-xs uppercase text-[#141414] hover:border-[#1F3FB0] hover:text-[#1F3FB0] transition-colors cursor-pointer flex items-center gap-1.5">
-                      <Sparkles className="w-3.5 h-3.5 text-[#1F3FB0]" />
+                    <button
+                      type="button"
+                      onClick={() => setIsTopicModalOpen(true)}
+                      className={`border px-4 py-2 font-mono text-xs uppercase transition-colors cursor-pointer flex items-center gap-1.5 ${
+                        isNightMode
+                          ? 'border-[#38322A] bg-[#221E19] text-[#EDE8DF] hover:border-[#D4AF37] hover:text-[#D4AF37]'
+                          : 'border-[#141414]/25 bg-white text-[#141414] hover:border-[#1F3FB0] hover:text-[#1F3FB0]'
+                      }`}
+                    >
+                      <Sparkles className={`w-3.5 h-3.5 ${isNightMode ? 'text-[#D4AF37]' : 'text-[#1F3FB0]'}`} />
                       <span>Explore Topic Samples (Open Access)</span>
                     </button>
-                    {researchItems.length > 0 && <button type="button" onClick={() => setActiveCategory('ALL')} className="border border-[#141414]/25 bg-white px-4 py-2 font-mono text-xs uppercase">Show all papers</button>}
+                    {researchItems.length > 0 && (
+                      <button
+                        type="button"
+                        onClick={() => setActiveCategory('ALL')}
+                        className={`border px-4 py-2 font-mono text-xs uppercase transition-colors cursor-pointer ${
+                          isNightMode
+                            ? 'border-[#38322A] bg-[#221E19] text-[#EDE8DF]'
+                            : 'border-[#141414]/25 bg-white text-[#141414]'
+                        }`}
+                      >
+                        Show all papers
+                      </button>
+                    )}
                   </div>
                 </section>
               ) : <>
@@ -1587,6 +1637,8 @@ export default function App() {
                 categoryAppearances={categoryAppearances}
                 isNightMode={isNightMode}
                 onToggleNightMode={toggleNightMode}
+                lampStyle={lampStyle}
+                onChangeLampStyle={handleUpdateLampStyle}
                 onCursorChange={setCursorState}
               />
 
@@ -1928,6 +1980,8 @@ export default function App() {
         initialSelectedBook={customizerTargetBook || activeShelfItem}
         shelfMaterial={shelfMaterial}
         onChangeShelfMaterial={setShelfMaterial}
+        lampStyle={lampStyle}
+        onChangeLampStyle={handleUpdateLampStyle}
         sortMode={shelfSortMode}
         onChangeSortMode={setShelfSortMode}
         categoryAppearances={categoryAppearances}

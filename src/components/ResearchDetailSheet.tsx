@@ -90,7 +90,7 @@ export const ResearchDetailSheet: React.FC<ResearchDetailSheetProps> = ({
       );
     } else if (actionType === 'schema-viewer') {
       setModalNotice(
-        `Structured schema documentation loaded: ${item.dataSources || 'European Commission eAmbrosia & TMDN'}. Unified relational model active in right panel.`
+        `Structured schema documentation loaded: ${item.dataSources || 'Open Scientific Repositories & Crossref Metadata'}. Unified relational model active in right panel.`
       );
     } else if (actionType === 'external-link') {
       window.open('https://www.unipr.it', '_blank');

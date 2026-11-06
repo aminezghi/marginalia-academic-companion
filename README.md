@@ -31,7 +31,7 @@
 ---
 
 ### 👤 About the Author & Current Research
-**Amine Zouaghi** is a Doctoral Researcher (PhD Student & Grant Holder) and **FutureData4EU Fellow** funded under the European Union’s **Marie Skłodowska-Curie Actions (MSCA COFUND / Horizon Europe)**, carrying out doctoral research at the **University of Parma** (*Università degli Studi di Parma*) within the **Department of Food and Drug** (*Dipartimento di Scienze degli Alimenti e del Farmaco*), in the scientific-disciplinary sector of **Agricultural and Food Economics, and Rural Appraisal (AGRI-01/A)**.
+**Amine Zouaghi** is a Doctoral Researcher (PhD Student & Grant Holder) and **FutureData4EU Fellow** funded under the European Union’s **Marie Skłodowska-Curie Actions (MSCA COFUND / Horizon Europe)**, carrying out doctoral research at the **University of Parma** (*Università degli Studi di Parma*) within the **Department of Food and Drug** (*Dipartimento di Scienze degli Alimenti e del Farmaco*).
 
 His interdisciplinary research bridges Data Science, AI, and Sustainable Food Systems, focusing on Big Data analytics, consumer behavior, and digital transition:
 

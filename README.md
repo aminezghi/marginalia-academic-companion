@@ -8,7 +8,7 @@
 </p>
 
 <p align="center">
-  <a href="https://marginalia-academic-knowledge-compa.vercel.app"><img src="https://img.shields.io/badge/Deployment-Vercel%20Live-000000?logo=vercel&logoColor=white" alt="Vercel Deployment" /></a>
+  <a href="https://marginalia-academic.vercel.app"><img src="https://img.shields.io/badge/Deployment-marginalia--academic.vercel.app-000000?logo=vercel&logoColor=white" alt="Vercel Deployment" /></a>
   <a href="#-desktop-workbench--local-emulator"><img src="https://img.shields.io/badge/Platform-Windows%2010%20%7C%2011%20(64--bit)-0078D6?logo=windows" alt="Platform" /></a>
   <a href="LICENSE"><img src="https://img.shields.io/badge/License-MIT-10B981?style=flat" alt="License" /></a>
   <a href="#-testing--verification"><img src="https://img.shields.io/badge/Tests-152%20Passing%20(100%25)-brightgreen" alt="Tests" /></a>

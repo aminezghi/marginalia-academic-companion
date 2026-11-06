@@ -13,10 +13,13 @@ import { connectStorageEmulator } from 'firebase/storage';
 // Firebase's redirect helper must be same-site on Chrome (M115+) when the app
 // is hosted outside Firebase Hosting. Vercel proxies /__/auth/* to the Firebase
 // project helper, so use the production app hostname as authDomain there.
-const productionAppHost = 'marginalia-academic-knowledge-compa.vercel.app';
+const productionAppHosts = [
+  'marginalia-academic.vercel.app',
+  'marginalia-academic-knowledge-compa.vercel.app'
+];
 const configuredAuthDomain = import.meta.env.VITE_FIREBASE_AUTH_DOMAIN || '';
-const authDomain = typeof window !== 'undefined' && window.location.hostname === productionAppHost
-  ? productionAppHost
+const authDomain = typeof window !== 'undefined' && productionAppHosts.includes(window.location.hostname)
+  ? window.location.hostname
   : configuredAuthDomain;
 
 const firebaseConfig = {

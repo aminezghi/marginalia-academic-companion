@@ -130,7 +130,8 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       // blockers cannot interrupt sign-in. Keep popup behavior for the Auth
       // Emulator, which is explicitly exercised by the E2E suite, and local
       // development. Production authDomain is same-site and proxied by Vercel.
-      if (!shouldUseEmulators() && window.location.hostname === 'marginalia-academic-knowledge-compa.vercel.app') {
+      const isProductionHost = window.location.hostname === 'marginalia-academic.vercel.app' || window.location.hostname === 'marginalia-academic-knowledge-compa.vercel.app';
+      if (!shouldUseEmulators() && isProductionHost) {
         await signInWithRedirect(auth, googleProvider);
         return;
       }

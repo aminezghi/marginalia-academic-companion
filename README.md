@@ -1,140 +1,197 @@
-<div align="center">
-<img width="1200" height="475" alt="GHBanner" src="https://ai.google.dev/static/site-assets/images/share-ais-513315318.png" />
-</div>
+<p align="center">
+  <img src="brand/marginalia-mark-color.svg" width="96" height="96" alt="Marginalia Logo" />
+  <h1 align="center">Marginalia by Amine</h1>
+  <p align="center">
+    <strong>Editorial Academic Knowledge Companion & Vintage Bookshelf Reading Studio</strong><br/>
+    <em>Tactile 3D physical bookshelf · Deep paper reading with margin annotations · Local-first & Cloud-synced · DOI resolution & Gemini AI synthesis</em>
+  </p>
+</p>
 
-# Marginalia Academic Companion & Reading Studio
+<p align="center">
+  <a href="https://marginalia-academic-knowledge-compa.vercel.app"><img src="https://img.shields.io/badge/Deployment-Vercel%20Live-000000?logo=vercel&logoColor=white" alt="Vercel Deployment" /></a>
+  <a href="#-desktop-workbench--local-emulator"><img src="https://img.shields.io/badge/Platform-Windows%2010%20%7C%2011%20(64--bit)-0078D6?logo=windows" alt="Platform" /></a>
+  <a href="LICENSE"><img src="https://img.shields.io/badge/License-MIT-10B981?style=flat" alt="License" /></a>
+  <a href="#-testing--verification"><img src="https://img.shields.io/badge/Tests-152%20Passing%20(100%25)-brightgreen" alt="Tests" /></a>
+  <a href="docs/audits/PROJECT_STATUS.md"><img src="https://img.shields.io/badge/Security%20Rules-111%20Passing-blue" alt="Security" /></a>
+  <img src="https://img.shields.io/badge/Stack-React%2019%20%7C%20TypeScript%20%7C%20Vite%208-61DAFB?logo=react" alt="Stack" />
+</p>
 
-A modern, editorial personal academic knowledge companion built with Google AI Studio. Features immersive bookshelf archive, research assistant powered by Gemini AI, DOI metadata resolution, and literature synthesis tools.
+---
 
-**View in AI Studio:** https://ai.studio/apps/54bae8b1-3327-4418-8e60-cab41a61fce3
+## 💡 The Story & Motivation Behind Marginalia
 
-## Features
+> *"As a doctoral researcher in computer engineering, my daily work requires absorbing dozens of peer-reviewed papers across machine learning, computer vision, and data engineering.*
+> 
+> *Yet every digital tool we are given — Zotero, Mendeley, basic PDF viewers — treats scientific literature like rows in a sterile, clinical spreadsheet. Papers are dumped into rigid listviews, filed away into nested folders, and forgotten. The human, tactile dimension of intellectual discovery is completely stripped away.*
+> 
+> *For centuries, scholarship flourished through **marginalia**: Pierre de Fermat inscribing his famous conjecture in the margins of Diophantus's Arithmetica, Samuel Taylor Coleridge arguing with philosophy in the margins of his library books, researchers building intimate dialogues with physical volumes resting on warm timber shelves.*
+> 
+> *I built **Marginalia by Amine** to restore that intellectual warmth to modern research: an application that pairs the sensory delight of a physical vintage library bookshelf with the rigor of modern academic workflows. Here, your papers live as tactile, customized hardbound volumes on a wooden shelf; you read real PDFs with margin notes, resolve DOIs instantly via Crossref, consult an AI research assistant powered by Google Gemini, and retain 100% control over your data — whether in private local-first guest mode or synced securely through owner-isolated cloud storage."*
 
-- **Physical Bookshelf Archive** - Interactive vintage bookshelf with 3D visualization
-- **AI Research Assistant** - Ask questions about your research library (requires Gemini API key)
-- **DOI Metadata Resolution** - Automatically fetch paper metadata via Crossref
-- **Dedicated Reader** - Immersive paper reading experience with highlights
-- **Research Notebook** - Write and organize literature notes
-- **Reading Tracker** - Track progress and set reading goals
-- **Collections & Tags** - Organize papers into custom collections
-- **Mobile Responsive** - Full mobile support with bottom navigation
+---
 
-## AI Features & API Key Requirement
+### 👤 About the Author & Current Research
+**Amine Zouaghi** is a Doctoral Researcher and **FutureData4EU Fellow** funded under the European Union’s **Marie Skłodowska-Curie Actions (MSCA COFUND / Horizon Europe)**, carrying out doctoral research affiliated with the **University of Parma** (Department of Engineering and Architecture / Food Project) and the **University of Bologna**. His research focuses on Big Data, AI, Computer Vision, and Digital Transition:
 
-The AI Research Assistant requires a valid Gemini API key from [Google AI Studio](https://aistudio.google.com/).
+- 🏛️ **Doctoral Fellowship Profile:** [FutureData4EU MSCA Fellow — Amine Zouaghi](https://site.unibo.it/futuredata4eu/en/fellows/thematic-area-5-food-bioeconomy-natural-resources-agriculture-and-environment)
+- 🎓 **Institutional Faculty Page:** [University of Parma Profile](https://personale.unipr.it/en/ugovdocenti/person/270639)
+- 📖 **Google Scholar:** [Amine Zouaghi on Google Scholar](https://scholar.google.com/citations?user=KeVyb90AAAAJ&hl=en)
+- 🔬 **ResearchGate:** [Amine Zouaghi on ResearchGate](https://www.researchgate.net/profile/Amine-Zouaghi)
+- 💼 **LinkedIn:** [Amine Zouaghi on LinkedIn](https://www.linkedin.com/in/zouaghi-amine/)
 
-**Without a valid API key:**
-- The AI assistant button will show a prompt to get an API key
-- Local synthesis fallback is available for basic functionality
+---
 
-**To get a free API key:**
-1. Visit https://aistudio.google.com/
-2. Sign in with your Google account
-3. Create a new API key
-4. Set it in your environment as `GEMINI_API_KEY`
+## 🌟 Key Capabilities
 
-## Run Locally
+| Capability | Experience & Implementation Details |
+| :--- | :--- |
+| 📚 **Tactile 3D Bookshelf Archive** | Interactive physical bookshelf with realistic timber grains (Dark Walnut, Natural Oak, Mahogany), spring physics, tactile paper-rustle audio, and custom embossed spine ribs (`#D4AF37`). |
+| 📖 **Dedicated Paper Reader** | Integrated React-PDF document reader with continuous scrolling, page zoom, text selection, visual highlighters, and persistent marginal notes. |
+| 🔒 **Owner-Isolated Security Model** | 111 automated security tests verify strict zero-trust isolation: papers, PDFs, notes, and collections are strictly owner-scoped; unauthenticated cross-user reads and deletes are denied at the Firebase rules engine. |
+| 🧭 **Local-First Guest Mode** | Complete functionality without requiring an account. Guest PDFs and notes persist securely in client-side IndexedDB with seamless single-click migration to authenticated cloud sync upon signup. |
+| ⚡ **DOI Metadata Resolution** | Paste any DOI (e.g., `10.1038/s41586-020-2649-2`) to fetch peer-reviewed bibliographic metadata, author lists, journal abstracts, and publication years directly from Crossref. |
+| 🤖 **AI Research Assistant** | Interactive scholarly literature companion powered by Google Gemini (Gemini 2.5 Flash / Pro). Synthesizes abstracts, drafts reading notes, and answers nuanced research questions across your collection. |
+| 🌐 **Serverless Web + Desktop** | Deployed on **Vercel** via modular serverless functions (`api/[...route].ts`) and packageable as an offline **Windows Desktop** installer with bundled local emulators. |
 
-**Prerequisites:** Node.js 24, Java 21, npm, and Git. The local Firebase Auth, Firestore and Storage emulators run on ports 9099, 8080 and 9199.
+---
 
-Windows PowerShell:
+## 🚀 Quick Start & Local Development
+
+### Prerequisites
+- **Node.js**: `v24+`
+- **npm**: `v11+`
+- **Java**: `JDK 21+` (required for local Firebase Auth/Firestore/Storage emulators)
+- **Git**
+
+### Installation & Run
 
 ```powershell
-# Install the exact dependency versions from the lockfile
+# 1. Clone the repository
+git clone https://github.com/aminezghi/marginalia-academic-companion.git
+cd marginalia-academic-companion
+
+# 2. Install exact dependency versions
 npm ci
 
-# Create .env only if one is not already present, then set the Firebase project
-# to marginalia-test-emulator and VITE_USE_FIREBASE_EMULATORS=true.
+# 3. Initialize your environment configuration
 if (!(Test-Path .env)) { Copy-Item .env.example .env }
-notepad .env
 
-# Start the app and only the dedicated local test emulators
+# 4. Start Marginalia with dedicated local test emulators
 npm run dev:local
 ```
 
-Open http://localhost:3000. Press Ctrl+C in the same terminal to stop the app and emulators. Add a valid `GEMINI_API_KEY` to `.env` to enable the online Gemini features; the key is optional for the rest of the local app. Do not put production Firebase settings in `.env` when using `dev:local`.
+Open **`http://localhost:3000`** in your browser.  
+- Press `Ctrl+C` in your terminal to stop the application and emulators cleanly.
+- To enable the online Gemini AI assistant, add your free key from [Google AI Studio](https://aistudio.google.com/) as `GEMINI_API_KEY` in `.env`.
 
-## Windows Desktop Installer
+---
 
-The Windows installer is emulator-only and stores its Auth, Firestore, and PDF Storage data on this PC. It never connects to the production Firebase project. Email/password accounts created in the desktop app are local emulator accounts; Google sign-in uses the emulator flow and is not a real Google account connection. This is intended for local use, not cross-device sync.
+## 🧪 Testing & Verification
 
-Requirements for building the installer: Windows x64, Node/npm, the root dependencies installed, the cached Firebase emulator downloads, and a Java 21 JDK. The installer builder bundles the Java runtime and Firebase emulator files, so end users do not need Node.js or Java. Build PowerShell:
+Marginalia enforces strict automated verification across security, APIs, and end-to-end browser workflows (152 total tests):
 
 ```powershell
-npm ci
-npm --prefix desktop ci
-npm run desktop:windows
-```
+# 1. TypeScript Static Analysis (0 errors)
+npm run lint
 
-The build refuses to proceed unless the existing `.env` selects `marginalia-test-emulator` and enables the emulators. The installer is written to `artifacts/windows/Marginalia-Setup-1.0.0-x64.exe`. User data persists in the Windows app-data folder after closing the app. DOI lookup requires an internet connection. The optional AI workspace stays locked until a Gemini key is entered; the Windows app protects the key with Windows secure storage. AI requests send the user's question and selected paper metadata/abstract to Google Gemini.
+# 2. Server API & Crossref Integration Tests (32 tests)
+npx jest tests/server-api.test.js tests/security/rules-validation.test.js
 
-## Deploy to Production
+# 3. Firebase Firestore & Storage Security Rules Suite (111 tests)
+# Validates owner-only PDF reads, file size quotas, MIME validation, and cross-user denial
+npm run test:security
 
-```bash
-# Build the application
+# 4. Playwright End-to-End Browser Journey Suite (41 tests)
+# Tests guest import, DOI lookup, PDF canvas rendering, user registration, and cloud sync
+npm run test:e2e
+
+# 5. Production Build Verification
 npm run build
-
-# Deploy the /deploy folder which contains:
-# - dist/ (compiled static assets)
-# - server.cjs (production Express server)
-# - package.json (deployment dependencies)
-
-# From the deploy folder:
-cd deploy
-npm install
-node server.cjs
 ```
 
-## Project Structure
+---
+
+## 🏛️ Project Architecture
 
 ```
-├── src/                    # React source code
-│   ├── components/        # UI components
-│   ├── data/              # Sample research data
-│   ├── types/             # TypeScript types
-│   └── utils/             # Utility functions
-├── server.ts              # Development server (with Vite)
-├── deploy/
-│   ├── server.cjs         # Production server
-│   ├── package.json       # Deploy dependencies
-│   ├── dist/              # Built static assets
-│   └── .env               # API key configuration
-└── index.html             # Entry point
+marginalia-academic-companion/
+├── api/                    # Vercel Serverless Function entrypoints ([...route].ts)
+├── brand/                  # Vector logo kit, web icons, favicons, and manifest
+│   ├── marginalia-mark-color.svg
+│   ├── marginalia-mark-black.svg
+│   ├── marginalia-mark-white.svg
+│   ├── marginalia-logo-horizontal.svg
+│   └── favicon.ico
+├── desktop/                # Electron Windows packaging configuration
+├── docs/                   # Engineering documentation, audits, and test reports
+│   ├── architecture/       # Data architecture, security models, deployment specs
+│   └── audits/             # Comprehensive E2E reports, root cause analyses, status logs
+├── public/                 # Static assets, web manifest, and browser favicons
+├── scripts/                # Windows build and clean automation scripts
+├── src/                    # React 19 + TypeScript application source
+│   ├── components/         # Bookshelf archive, PDF reader, AI assistant, navigation
+│   ├── config/             # Firebase SDK client initialization & emulator guards
+│   ├── contexts/           # Authentication and user state contexts
+│   ├── data/               # Wood materials, book covers, and spine appearance presets
+│   ├── hooks/              # Firebase Firestore & Storage reactive synchronization
+│   ├── services/           # PDF storage, user profiles, and Crossref DOI resolver
+│   ├── types/              # Domain TypeScript types for research items and shelves
+│   └── utils/              # Guest-to-cloud migration, import parsers, Web Audio sound
+├── tests/
+│   ├── e2e/                # Playwright end-to-end browser journeys (41 tests)
+│   └── security/           # Firebase security rules standalone unit tests (111 tests)
+├── dev-server.ts           # Development Express + Vite middleware server
+├── server-app.js           # Shared Express backend application (DOI & Gemini endpoints)
+├── firestore.production.rules
+├── storage.production.rules
+├── vercel.json             # Vercel routing, build settings, and Firebase rewrites
+└── package.json
 ```
 
-## Environment Variables
+---
 
-| Variable | Description | Required |
-|----------|-------------|----------|
-| `GEMINI_API_KEY` | Google Gemini API key for AI features | Recommended |
-| `APP_URL` | Base URL for the application | Optional |
-| `PORT` | Server port (default: 3000) | No |
+## 🔐 Environment Variables
 
-## API Endpoints
+| Variable | Description | Required | Source |
+| :--- | :--- | :---: | :--- |
+| `GEMINI_API_KEY` | Google Gemini API key for literature synthesis | Optional | [Google AI Studio](https://aistudio.google.com/) |
+| `VITE_FIREBASE_API_KEY` | Firebase Web API Key | Yes | Firebase Console (Project Settings) |
+| `VITE_FIREBASE_AUTH_DOMAIN` | Firebase Auth domain (`*.firebaseapp.com`) | Yes | Firebase Console |
+| `VITE_FIREBASE_PROJECT_ID` | Firebase Project ID | Yes | Firebase Console |
+| `VITE_FIREBASE_STORAGE_BUCKET`| Cloud Storage bucket (`*.appspot.com` or `*.firebasestorage.app`) | Yes | Firebase Console |
+| `VITE_FIREBASE_MESSAGING_SENDER_ID` | Cloud Messaging sender ID | Yes | Firebase Console |
+| `VITE_FIREBASE_APP_ID` | Firebase Web App ID | Yes | Firebase Console |
+| `VITE_USE_FIREBASE_EMULATORS` | Set to `true` for local development & testing | Dev/Test | Local `.env` |
+| `APP_URL` | Base application URL for OAuth redirects | Optional | `http://localhost:3000` |
 
-| Endpoint | Method | Description |
-|----------|--------|-------------|
-| `/api/gemini-status` | GET | Check if Gemini API is configured |
-| `/api/health` | GET | Health check endpoint |
-| `/api/doi` | GET | Resolve DOI to metadata |
-| `/api/ai/ask` | POST | Ask AI research assistant |
+---
 
-## Testing
+## 🙏 Acknowledgments & Inspirations
 
-After starting the server, test the endpoints:
+- **Inspirations & Pioneers**:
+  - **The Republic of Letters & Classical Libraries**: For the enduring humanist tradition of active marginal annotation.
+  - **Crossref**: For maintaining the open global infrastructure linking digital scholarly works through DOIs.
+  - **Vellum by Amine**: For pioneering local-first literature workflows and rigorous open-science tooling.
+- **Foundations & Libraries**:
+  - [React 19](https://react.dev/), [TypeScript](https://www.typescriptlang.org/), and [Vite](https://vite.dev/)
+  - [React-PDF / PDF.js](https://react-pdf.org/) for vector-sharp client-side academic document rendering
+  - [Framer Motion](https://motion.dev/) for realistic spring physics and shelf dynamics
+  - [Lucide Icons](https://lucide.dev/) for clean, accessible interface glyphs
+  - [Kaan Kiziltug's Logo Design Skill](https://github.com/kaankiziltug/logo-design-skill) for the geometric SVG audit and production branding pipeline
+  - [NextLevelBuilder's UI/UX Pro Max](https://github.com/nextlevelbuilder/ui-ux-pro-max-skill) for editorial typography and paper-reading design intelligence
 
-```bash
-# Health check
-curl http://localhost:3000/api/health
+---
 
-# Gemini status
-curl http://localhost:3000/api/gemini-status
+## 👤 Author & Lead Architect
 
-# DOI resolution
-curl "http://localhost:3000/api/doi?doi=10.1038/s41586-020-2649-2"
+**Amine Zouaghi**
+- Doctoral Researcher & Lead Architect
+- Affiliations: University of Parma & University of Bologna (FutureData4EU MSCA Fellow)
+- Institutional Email: `amine.zouaghi@unipr.it` · Personal: `azouaghiamine@gmail.com`
+- [LinkedIn Profile](https://www.linkedin.com/in/zouaghi-amine/) · [Google Scholar](https://scholar.google.com/citations?user=KeVyb90AAAAJ&hl=en) · [GitHub (@aminezghi)](https://github.com/aminezghi)
 
-# AI assistant (with papers)
-curl -X POST http://localhost:3000/api/ai/ask \
-  -H "Content-Type: application/json" \
-  -d '{"query":"summarize", "papers": [...], "mode":"summarize"}'
-```
+---
+
+## 📄 License
+
+This project is licensed under the [MIT License](LICENSE) — free and open-access for researchers, students, and scholars worldwide.

@@ -1752,7 +1752,7 @@ export const RESEARCHER_PROFILE: ResearcherProfile = {
     {
       label: 'University Profile',
       handle: 'University of Parma Directory',
-      url: 'https://www.unipr.it',
+      url: 'https://personale.unipr.it/en/ugovdocenti/person/270639',
       available: true,
     },
     {
@@ -1764,25 +1764,25 @@ export const RESEARCHER_PROFILE: ResearcherProfile = {
     {
       label: 'Google Scholar',
       handle: 'Amine Zouaghi',
-      url: 'https://scholar.google.com',
+      url: 'https://scholar.google.com/citations?user=KeVyb90AAAAJ&hl=en',
       available: true,
     },
     {
       label: 'ResearchGate',
       handle: 'Amine-Zouaghi',
-      url: 'https://www.researchgate.net',
+      url: 'https://www.researchgate.net/profile/Amine-Zouaghi',
       available: true,
     },
     {
       label: 'LinkedIn',
       handle: 'amine-zouaghi',
-      url: 'https://www.linkedin.com',
+      url: 'https://www.linkedin.com/in/zouaghi-amine/',
       available: true,
     },
     {
       label: 'Institutional Email',
-      handle: 'Contact via University of Parma',
-      url: 'mailto:azouaghiamine@gmail.com',
+      handle: 'amine.zouaghi@unipr.it',
+      url: 'mailto:amine.zouaghi@unipr.it',
       available: true,
     },
   ],

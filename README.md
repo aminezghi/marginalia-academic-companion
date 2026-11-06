@@ -20,7 +20,7 @@
 
 ## 💡 The Story & Motivation Behind Marginalia
 
-> *"As a doctoral researcher in computer engineering, my daily work requires absorbing dozens of peer-reviewed papers across machine learning, computer vision, and data engineering.*
+> *"As an interdisciplinary doctoral researcher, my daily work requires absorbing dozens of peer-reviewed papers across machine learning, data science, and academic literature.*
 > 
 > *Yet every digital tool we are given — Zotero, Mendeley, basic PDF viewers — treats scientific literature like rows in a sterile, clinical spreadsheet. Papers are dumped into rigid listviews, filed away into nested folders, and forgotten. The human, tactile dimension of intellectual discovery is completely stripped away.*
 > 
@@ -31,10 +31,12 @@
 ---
 
 ### 👤 About the Author & Current Research
-**Amine Zouaghi** is a Doctoral Researcher and **FutureData4EU Fellow** funded under the European Union’s **Marie Skłodowska-Curie Actions (MSCA COFUND / Horizon Europe)**, carrying out doctoral research affiliated with the **University of Parma** (Department of Engineering and Architecture / Food Project) and the **University of Bologna**. His research focuses on Big Data, AI, Computer Vision, and Digital Transition:
+**Amine Zouaghi** is a Doctoral Researcher (PhD Student & Grant Holder) and **FutureData4EU Fellow** funded under the European Union’s **Marie Skłodowska-Curie Actions (MSCA COFUND / Horizon Europe)**, carrying out doctoral research at the **University of Parma** (*Università degli Studi di Parma*) within the **Department of Food and Drug** (*Dipartimento di Scienze degli Alimenti e del Farmaco*), in the scientific-disciplinary sector of **Agricultural and Food Economics, and Rural Appraisal (AGRI-01/A)**.
 
+His interdisciplinary research bridges Data Science, AI, and Sustainable Food Systems, focusing on Big Data analytics, consumer behavior, and digital transition:
+
+- 🎓 **Institutional University Page:** [University of Parma Faculty Directory (Profile 270639)](https://personale.unipr.it/en/ugovdocenti/person/270639)
 - 🏛️ **Doctoral Fellowship Profile:** [FutureData4EU MSCA Fellow — Amine Zouaghi](https://site.unibo.it/futuredata4eu/en/fellows/thematic-area-5-food-bioeconomy-natural-resources-agriculture-and-environment)
-- 🎓 **Institutional Faculty Page:** [University of Parma Profile](https://personale.unipr.it/en/ugovdocenti/person/270639)
 - 📖 **Google Scholar:** [Amine Zouaghi on Google Scholar](https://scholar.google.com/citations?user=KeVyb90AAAAJ&hl=en)
 - 🔬 **ResearchGate:** [Amine Zouaghi on ResearchGate](https://www.researchgate.net/profile/Amine-Zouaghi)
 - 💼 **LinkedIn:** [Amine Zouaghi on LinkedIn](https://www.linkedin.com/in/zouaghi-amine/)
@@ -185,9 +187,11 @@ marginalia-academic-companion/
 ## 👤 Author & Lead Architect
 
 **Amine Zouaghi**
-- Doctoral Researcher & Lead Architect
-- Affiliations: University of Parma & University of Bologna (FutureData4EU MSCA Fellow)
+- Doctoral Researcher (PhD Student & Grant Holder) & Lead Architect
+- Affiliation: University of Parma (*Department of Food and Drug*) · FutureData4EU MSCA Fellow
+- Sector: Agricultural and Food Economics, and Rural Appraisal (AGRI-01/A)
 - Institutional Email: `amine.zouaghi@unipr.it` · Personal: `azouaghiamine@gmail.com`
+- [University of Parma Profile](https://personale.unipr.it/en/ugovdocenti/person/270639) · [FutureData4EU Fellowship](https://site.unibo.it/futuredata4eu/en/fellows/thematic-area-5-food-bioeconomy-natural-resources-agriculture-and-environment)
 - [LinkedIn Profile](https://www.linkedin.com/in/zouaghi-amine/) · [Google Scholar](https://scholar.google.com/citations?user=KeVyb90AAAAJ&hl=en) · [GitHub (@aminezghi)](https://github.com/aminezghi)
 
 ---

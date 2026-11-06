@@ -108,6 +108,7 @@ export const ShelfArchive: React.FC<ShelfArchiveProps> = ({
   // Refs for gesture tracking & active spring animations
   const activeAnimationRef = useRef<AnimationPlaybackControls | null>(null);
   const isDraggingRef = useRef<boolean>(false);
+  const isDragGestureRef = useRef<boolean>(false);
   const isTouchRef = useRef<boolean>(false);
   const dragStartXRef = useRef<number>(0);
   const dragStartTimeRef = useRef<number>(0);
@@ -247,6 +248,7 @@ export const ShelfArchive: React.FC<ShelfArchiveProps> = ({
       }
       const now = performance.now();
       isDraggingRef.current = true;
+      isDragGestureRef.current = false;
       isTouchRef.current = isTouch;
       dragStartXRef.current = clientX;
       dragStartTimeRef.current = now;
@@ -262,10 +264,21 @@ export const ShelfArchive: React.FC<ShelfArchiveProps> = ({
       if (!isDraggingRef.current) return;
       const now = performance.now();
       const dx = clientX - dragLastXRef.current;
-      totalDragPixelsRef.current = Math.abs(clientX - dragStartXRef.current);
+      const displacement = Math.abs(clientX - dragStartXRef.current);
+      totalDragPixelsRef.current = displacement;
 
-      if (totalDragPixelsRef.current > (isTouchRef.current ? 8 : 4) && !isMouseDragging) {
-        setIsMouseDragging(true);
+      // Generous deadzone slop to differentiate intentional swipe vs micro tap contact:
+      const slop = isTouchRef.current ? 16 : 8;
+      if (displacement > slop) {
+        isDragGestureRef.current = true;
+        if (!isMouseDragging) {
+          setIsMouseDragging(true);
+        }
+      }
+
+      // If user hasn't exceeded the deadzone, do NOT move the shelf!
+      if (!isDragGestureRef.current) {
+        return;
       }
 
       const maxIdx = Math.max(0, items.length - 1);
@@ -310,10 +323,16 @@ export const ShelfArchive: React.FC<ShelfArchiveProps> = ({
       const now = performance.now();
       pointerHistoryRef.current.push({ x: clientX, time: now });
 
-      const displacement = Math.abs(clientX - dragStartXRef.current);
-      const dragThreshold = isTouchRef.current ? 34 : 14;
+      const wasDragGesture = isDragGestureRef.current;
+      // Preserve isDragGestureRef for 100ms so synthetic click event after mouseup/touchend ignores it
+      setTimeout(() => {
+        isDragGestureRef.current = false;
+      }, 100);
 
-      if (displacement > dragThreshold) {
+      const displacement = Math.abs(clientX - dragStartXRef.current);
+      const slop = isTouchRef.current ? 18 : 10;
+
+      if (wasDragGesture && displacement > slop) {
         const gestureVel = computeGestureVelocity(now) * 1.2;
         const motionVel = springVelocity.get();
         const rawReleaseVel =
@@ -726,7 +745,7 @@ export const ShelfArchive: React.FC<ShelfArchiveProps> = ({
           const offset = index - visualIndex;
           const absOffset = Math.abs(offset);
 
-          const maxVisible = isMobile ? 6.5 : isTablet ? 9.5 : 13.5;
+          const maxVisible = isMobile ? 8.5 : isTablet ? 12.5 : 18.5;
           if (absOffset > maxVisible) return null;
 
           const {
@@ -742,20 +761,11 @@ export const ShelfArchive: React.FC<ShelfArchiveProps> = ({
           const isHovered = hoveredIndex === index;
           const isPulledOut = isCenterActive && pulledOutBookId === item.id;
 
-          const centerOffset = isMobile ? -14 : -26;
-          const translateX = centerX - cameraX + centerOffset;
-
-          // Banker's Lamp clearance: books must NEVER collide with or slide underneath the lamp
-          const bookScreenX = (viewportWidth / 2) + translateX;
-          const bookRightEdge = bookScreenX + (currentWidth / 2);
-          const lampZoneStart = viewportWidth - (isMobile ? 100 : 155);
-
-          let lampFade = 1;
-          if (bookRightEdge > lampZoneStart) {
-            const overlap = bookRightEdge - lampZoneStart;
-            lampFade = Math.max(0, 1 - overlap / 60);
-          }
-          if (lampFade <= 0.05) return null;
+          // Reading Area Alignment: centers active volume between left ivy and right banker's lamp
+          const lampClearance = isMobile ? 80 : 124;
+          const leftClearance = isMobile ? 24 : 68;
+          const readingCenterShift = (leftClearance - lampClearance) / 2;
+          const translateX = centerX - cameraX + readingCenterShift;
 
           // Pull forward realistically: extra Z & slight lift when clicked (`isPulledOut`)
           const baseActiveZ = isMobile ? 44 : 68;
@@ -821,24 +831,15 @@ export const ShelfArchive: React.FC<ShelfArchiveProps> = ({
                 zIndex,
                 transformOrigin: '50% 100%',
                 willChange: 'transform, width, height',
-                opacity: lampFade,
-                pointerEvents: lampFade < 0.25 ? 'none' : 'auto',
                 filter: isNightMode
                   ? 'drop-shadow(-8px 10px 16px rgba(0,0,0,0.85)) drop-shadow(-2px 4px 6px rgba(0,0,0,0.55))'
                   : undefined,
               }}
               onClick={(e) => {
                 e.stopPropagation();
-                const dragThreshold = isTouchRef.current ? 32 : 14;
-                if (totalDragPixelsRef.current > dragThreshold) return;
+                // If user made an intentional dragging motion on the shelf, ignore click
+                if (isDragGestureRef.current) return;
                 handleBookSelect();
-              }}
-              onTouchEnd={(e) => {
-                const dragThreshold = 32;
-                if (totalDragPixelsRef.current <= dragThreshold) {
-                  e.stopPropagation();
-                  handleBookSelect();
-                }
               }}
               onDoubleClick={(e) => {
                 e.stopPropagation();

@@ -248,18 +248,6 @@ export const VintageBankersLamp: React.FC<VintageBankersLampProps> = ({
           <circle cx="63.2" cy="96" r="0.8" fill="#FFF" opacity="0.75" />
         </g>
       </svg>
-
-      {/* Tactile Status Pill Mounted on Front Wooden Edge Below Base */}
-      <div
-        className={`absolute -bottom-5 sm:-bottom-5.5 left-1/2 -translate-x-1/2 whitespace-nowrap text-[9px] font-mono tracking-wider transition-colors cursor-pointer px-2 py-0.5 rounded-full border shadow-xs z-10 ${
-          isLit
-            ? 'bg-[#10B981]/15 border-[#10B981]/35 text-[#10B981] font-semibold'
-            : 'border-[#141414]/15 bg-white/70 text-[#8C8275] hover:text-[#141414] hover:border-[#141414]/30'
-        }`}
-        title="Pull chain to toggle desk lamp & night mode"
-      >
-        {isLit ? '● NOCTURNE ON' : '○ PULL CHAIN'}
-      </div>
     </div>
   );
 };

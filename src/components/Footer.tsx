@@ -136,7 +136,7 @@ export const Footer: React.FC<FooterProps> = ({
         </div>
 
         {/* Right: Archival Attribution & Curator */}
-        <div className="text-right text-[10px] flex flex-col sm:flex-row sm:items-center sm:gap-2 opacity-80">
+        <div className="text-right text-[10px] flex items-center opacity-80">
           <a
             href="https://personale.unipr.it/en/ugovdocenti/person/270639"
             target="_blank"
@@ -148,8 +148,6 @@ export const Footer: React.FC<FooterProps> = ({
             <User className="w-3 h-3" />
             <span>Curated by {madeBy}</span>
           </a>
-          <span className="hidden sm:inline opacity-40">·</span>
-          <span>DOCTORAL ARCHIVE [2023–2026]</span>
         </div>
       </div>
     </footer>

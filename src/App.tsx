@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
+import React, { useState, useEffect, useMemo, useCallback, useRef, Suspense } from 'react';
 import {
   ResearchCategory,
   ResearchItem,
@@ -34,29 +34,34 @@ import { TopNav, MainViewMode } from './components/TopNav';
 import { CategoryTabs } from './components/CategoryTabs';
 import { ShelfArchive } from './components/ShelfArchive';
 import { ResearchCaption } from './components/ResearchCaption';
-import { LibraryView } from './components/LibraryView';
-import { DedicatedReader } from './components/DedicatedReader';
-import { BookContentsModal } from './components/BookContentsModal';
-import { NotesView } from './components/NotesView';
-import { ReadingTrackerView } from './components/ReadingTrackerView';
-import { AiAssistantView } from './components/AiAssistantView';
-import { ResearchMapView } from './components/ResearchMapView';
-import { CollectionsView } from './components/CollectionsView';
-import { DedicatedImportModal } from './components/DedicatedImportModal';
-import { LibraryCustomizerModal } from './components/LibraryCustomizerModal';
-
-import { ResearchDetailSheet } from './components/ResearchDetailSheet';
-import { ResearcherProfileModal } from './components/ResearcherProfileModal';
-import { MethodologyArchiveModal } from './components/MethodologyArchiveModal';
-import { ArticleEditorModal } from './components/ArticleEditorModal';
-import { CategoryManagerModal } from './components/CategoryManagerModal';
-import { CompanionToolsModal } from './components/CompanionToolsModal';
-import { AuthModal } from './components/AuthModal';
-import { AccountSettingsModal } from './components/AccountSettingsModal';
+import { VintageSkeleton } from './components/VintageSkeleton';
+import { CommandPalette } from './components/CommandPalette';
+import { exportMasterBibtex, exportObsidianVault, downloadFile } from './utils/academicExport';
 import { CustomCursor } from './components/CustomCursor';
 import { Footer } from './components/Footer';
-import { ApiKeyPrompt } from './components/ApiKeyPrompt';
-import { Onboarding } from './components/Onboarding';
+
+// Code-split dynamic views & modals (Vercel edge performance optimization)
+const LibraryView = React.lazy(() => import('./components/LibraryView').then((m) => ({ default: m.LibraryView })));
+const DedicatedReader = React.lazy(() => import('./components/DedicatedReader').then((m) => ({ default: m.DedicatedReader })));
+const BookContentsModal = React.lazy(() => import('./components/BookContentsModal').then((m) => ({ default: m.BookContentsModal })));
+const NotesView = React.lazy(() => import('./components/NotesView').then((m) => ({ default: m.NotesView })));
+const ReadingTrackerView = React.lazy(() => import('./components/ReadingTrackerView').then((m) => ({ default: m.ReadingTrackerView })));
+const AiAssistantView = React.lazy(() => import('./components/AiAssistantView').then((m) => ({ default: m.AiAssistantView })));
+const ResearchMapView = React.lazy(() => import('./components/ResearchMapView').then((m) => ({ default: m.ResearchMapView })));
+const CollectionsView = React.lazy(() => import('./components/CollectionsView').then((m) => ({ default: m.CollectionsView })));
+const DedicatedImportModal = React.lazy(() => import('./components/DedicatedImportModal').then((m) => ({ default: m.DedicatedImportModal })));
+const LibraryCustomizerModal = React.lazy(() => import('./components/LibraryCustomizerModal').then((m) => ({ default: m.LibraryCustomizerModal })));
+
+const ResearchDetailSheet = React.lazy(() => import('./components/ResearchDetailSheet').then((m) => ({ default: m.ResearchDetailSheet })));
+const ResearcherProfileModal = React.lazy(() => import('./components/ResearcherProfileModal').then((m) => ({ default: m.ResearcherProfileModal })));
+const MethodologyArchiveModal = React.lazy(() => import('./components/MethodologyArchiveModal').then((m) => ({ default: m.MethodologyArchiveModal })));
+const ArticleEditorModal = React.lazy(() => import('./components/ArticleEditorModal').then((m) => ({ default: m.ArticleEditorModal })));
+const CategoryManagerModal = React.lazy(() => import('./components/CategoryManagerModal').then((m) => ({ default: m.CategoryManagerModal })));
+const CompanionToolsModal = React.lazy(() => import('./components/CompanionToolsModal').then((m) => ({ default: m.CompanionToolsModal })));
+const AuthModal = React.lazy(() => import('./components/AuthModal').then((m) => ({ default: m.AuthModal })));
+const AccountSettingsModal = React.lazy(() => import('./components/AccountSettingsModal').then((m) => ({ default: m.AccountSettingsModal })));
+const ApiKeyPrompt = React.lazy(() => import('./components/ApiKeyPrompt').then((m) => ({ default: m.ApiKeyPrompt })));
+const Onboarding = React.lazy(() => import('./components/Onboarding').then((m) => ({ default: m.Onboarding })));
 
 import {
   toggleSound,
@@ -1310,8 +1315,39 @@ export default function App() {
     [researchItems]
   );
 
+  const [isCommandPaletteOpen, setIsCommandPaletteOpen] = useState(false);
+
+  // Omnibox / Command Palette keyboard listener (Cmd+K / Ctrl+K / slash)
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'k') {
+        e.preventDefault();
+        setIsCommandPaletteOpen((prev) => !prev);
+      }
+      if (e.key === '/' && !['INPUT', 'TEXTAREA'].includes((e.target as HTMLElement)?.tagName)) {
+        e.preventDefault();
+        setIsCommandPaletteOpen(true);
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, []);
+
+  const handleExportMasterBibtex = useCallback(() => {
+    playTactileClick();
+    const bib = exportMasterBibtex(researchItems);
+    downloadFile(bib, 'marginalia_library.bib', 'text/x-bibtex');
+  }, [researchItems]);
+
+  const handleExportObsidianVault = useCallback(async () => {
+    playTactileClick();
+    const blob = await exportObsidianVault(researchItems, collections, notes, highlights);
+    downloadFile(blob, 'marginalia_obsidian_vault.zip', 'application/zip');
+  }, [researchItems, collections, notes, highlights]);
+
   return (
     <>
+      <Suspense fallback={<VintageSkeleton fullscreen />}>
     {/* Auth Modal - shown when user is not authenticated */}
     <AccountSettingsModal
         isOpen={isAccountSettingsOpen}
@@ -1347,6 +1383,39 @@ export default function App() {
         isInteractive={cursorState.isInteractive}
       />
 
+      {/* Omnibox & Scholar Command Palette */}
+      <CommandPalette
+        isOpen={isCommandPaletteOpen}
+        onClose={() => setIsCommandPaletteOpen(false)}
+        papers={researchItems}
+        onSelectPaper={(paper) => {
+          playSheetExpand();
+          setActiveDetailItem(paper);
+        }}
+        onOpenReader={handleOpenInReader}
+        onNavigateView={(view) => {
+          if (view === 'shelf') {
+            setActiveView('shelf');
+          } else if (view === 'catalog') {
+            setActiveView('catalog');
+          } else {
+            setActiveView(view);
+          }
+        }}
+        onOpenImport={() => {
+          playTactileClick();
+          setIsImportModalOpen(true);
+        }}
+        onOpenCustomizer={() => {
+          playTactileClick();
+          setIsCustomizerOpen(true);
+        }}
+        onExportBibtex={handleExportMasterBibtex}
+        onExportObsidian={handleExportObsidianVault}
+        shelfMaterial={shelfMaterial}
+        onChangeShelfMaterial={setShelfMaterial}
+      />
+
       {/* Top Editorial Navigation */}
       <TopNav
         researcherName={profile.name}
@@ -1379,6 +1448,10 @@ export default function App() {
           playTactileClick();
           setCustomizerTargetBook(activeShelfItem);
           setIsCustomizerOpen(true);
+        }}
+        onOpenCommandPalette={() => {
+          playTactileClick();
+          setIsCommandPaletteOpen(true);
         }}
         onLogout={handleLogout}
         searchQuery={searchQuery}
@@ -1961,5 +2034,6 @@ export default function App() {
         />
       )}
     </div>
+    </Suspense>
   </>);
 }

@@ -107,7 +107,99 @@ const ai = apiKey ? new GoogleGenAI({ apiKey }) : null;
     }
   });
 
-  // AI Research Assistant (Powered by Gemini 3.8 Flash)
+  // AI Streaming Research Assistant (SSE Token-by-Token)
+  app.post('/api/ai/stream', async (req, res) => {
+    res.setHeader('Content-Type', 'text/event-stream');
+    res.setHeader('Cache-Control', 'no-cache, no-transform');
+    res.setHeader('Connection', 'keep-alive');
+
+    try {
+      const { query, papers, mode = 'ask_library', contextNotes } = req.body;
+
+      if (!ai) {
+        res.write(`data: ${JSON.stringify({ error: 'Configure a Gemini API key in settings to enable real-time streaming synthesis.', code: 'API_KEY_REQUIRED' })}\n\n`);
+        return res.end();
+      }
+
+      const papersContext = (papers || [])
+        .map((p, idx) => {
+          return `[Source ${idx + 1}] ID: ${p.id}
+Title: ${p.title}
+Authors: ${Array.isArray(p.authors) ? p.authors.join(', ') : p.authors || 'Unknown'}
+Year: ${p.year}
+Type: ${p.type || 'Article'}
+Journal: ${p.journal || p.institution || 'N/A'}
+Category/Collection: ${p.category || 'General'}
+Abstract: ${p.abstract || 'No abstract'}
+Key Findings / Notes: ${(p.keyFindings || []).join('; ')}
+Tags: ${(p.tags || []).join(', ')}`;
+        })
+        .join('\n\n---\n\n');
+
+      let modeInstructions = '';
+      if (mode === 'critique') {
+        modeInstructions = `\nPerform a rigorous methodological critique:
+- Internal & External Validity Assessment
+- Sample Size, Sampling Strategy & Generalizability
+- Potential Confounders & Analytical Biases
+- Constructive Recommendations for Replicability`;
+      } else if (mode === 'matrix') {
+        modeInstructions = `\nGenerate an exhaustive Comparative Literature Matrix in Markdown table format comparing:
+| Source & Year | Research Objective | Methodology & Sample | Core Findings | Limitations |`;
+      } else if (mode === 'summarize') {
+        modeInstructions = `\nProvide a structured academic synthesis:
+- Core Problem Statement
+- Empirical / Theoretical Methodology
+- Principal Discoveries
+- Epistemic Gaps & Future Trajectories`;
+      } else {
+        modeInstructions = `\nProvide an evidence-grounded answer addressing the user prompt directly, linking themes across sources.`;
+      }
+
+      const systemInstruction = `You are Marginalia, a specialized Academic Research Assistant.
+You have access to the scholar's verified personal research library below.
+Scientific Integrity & Grounding Protocols:
+1. Every claim MUST be explicitly cited using [Source X: Author, Year] or (Author, Year).
+2. Never invent citations, DOIs, statistics, or experiments not present in the provided library.
+3. If the library does not contain sufficient evidence to answer the question, state: "The current library does not contain direct evidence for this query."
+${modeInstructions}`;
+
+      const contents = [
+        {
+          role: 'user',
+          parts: [
+            {
+              text: `${systemInstruction}\n\n=== VERIFIED RESEARCH LIBRARY (${papers?.length || 0} PAPERS) ===\n${papersContext}\n\n${contextNotes ? `=== USER RESEARCH NOTES ===\n${contextNotes}\n\n` : ''}=== SCHOLAR'S QUERY ===\n${query || 'Synthesize the selected literature.'}`,
+            },
+          ],
+        },
+      ];
+
+      // Stream via @google/genai
+      const stream = await ai.models.generateContentStream({
+        model: 'gemini-2.5-flash',
+        contents,
+        config: {
+          temperature: 0.25,
+        },
+      });
+
+      for await (const chunk of stream) {
+        if (chunk.text) {
+          res.write(`data: ${JSON.stringify({ text: chunk.text })}\n\n`);
+        }
+      }
+
+      res.write(`data: [DONE]\n\n`);
+      res.end();
+    } catch (err) {
+      console.error('AI streaming error:', err);
+      res.write(`data: ${JSON.stringify({ error: err.message || 'Stream processing error' })}\n\n`);
+      res.end();
+    }
+  });
+
+  // AI Research Assistant (Powered by Gemini 2.5 Flash)
   app.post('/api/ai/ask', async (req, res) => {
     try {
       const { query, papers, mode = 'ask_library' } = req.body;
@@ -168,7 +260,7 @@ Scientific Integrity Rules:
       if (ai) {
         try {
           const response = await ai.models.generateContent({
-            model: 'gemini-3.8-flash',
+            model: 'gemini-2.5-flash',
             contents: [
               {
                 role: 'user',

@@ -20,6 +20,7 @@ import {
   Settings2,
 } from 'lucide-react';
 import { playTactileClick } from '../utils/sound';
+import { generateCitationText } from '../utils/academicExport';
 import type { PdfDocumentReaderProps } from './PdfDocumentReader';
 
 interface DedicatedReaderProps {
@@ -70,6 +71,10 @@ export const DedicatedReader: React.FC<DedicatedReaderProps> = ({
   const [selectedTextForHighlight, setSelectedTextForHighlight] = useState<string>('');
   const [highlightNoteInput, setHighlightNoteInput] = useState<string>('');
   const [showHighlightModal, setShowHighlightModal] = useState<boolean>(false);
+  const [canvasTheme, setCanvasTheme] = useState<'linen' | 'sepia' | 'slate' | 'monochrome'>('linen');
+  const [isZenMode, setIsZenMode] = useState<boolean>(false);
+  const [showCitationDropdown, setShowCitationDropdown] = useState<boolean>(false);
+  const [citationCopiedFormat, setCitationCopiedFormat] = useState<string | null>(null);
   const [copiedQuoteId, setCopiedQuoteId] = useState<string | null>(null);
   const lastProgressRef = useRef('');
   const [PdfDocumentReader, setPdfDocumentReader] = useState<React.ComponentType<PdfDocumentReaderProps> | null>(null);
@@ -277,6 +282,78 @@ export const DedicatedReader: React.FC<DedicatedReaderProps> = ({
             ))}
           </div>
 
+          {/* Theme Canvas Picker */}
+          <div className="hidden md:flex items-center gap-1 border border-[#141414]/20 bg-white p-1">
+            {(['linen', 'sepia', 'slate', 'monochrome'] as const).map((thm) => (
+              <button
+                key={thm}
+                onClick={() => {
+                  playTactileClick();
+                  setCanvasTheme(thm);
+                }}
+                className={`px-1.5 py-0.5 text-[10px] font-mono uppercase rounded-[1px] cursor-pointer transition-colors ${
+                  canvasTheme === thm ? 'bg-[#1F3FB0] text-white font-bold' : 'text-[#141414]/70 hover:text-[#141414]'
+                }`}
+                title={`Switch to ${thm} canvas`}
+              >
+                {thm[0].toUpperCase()}
+              </button>
+            ))}
+          </div>
+
+          {/* Quick Citation Copy Dropdown */}
+          <div className="relative">
+            <button
+              onClick={() => setShowCitationDropdown(!showCitationDropdown)}
+              className="p-1.5 border border-[#141414]/25 bg-white hover:border-[#1F3FB0] text-xs font-mono flex items-center gap-1 cursor-pointer"
+              title="Copy Academic Citation (APA, Chicago, BibTeX...)"
+            >
+              <Copy className="w-3.5 h-3.5 text-[#1F3FB0]" />
+              <span className="hidden xl:inline text-[10px]">CITE</span>
+            </button>
+            {showCitationDropdown && (
+              <div className="absolute right-0 top-full mt-1 w-44 bg-white border border-[#141414] shadow-lg z-50 p-1 divide-y divide-[#141414]/10 text-xs font-mono">
+                {(['apa', 'chicago', 'harvard', 'mla', 'bibtex'] as const).map((fmt) => (
+                  <button
+                    key={fmt}
+                    onClick={() => {
+                      playTactileClick();
+                      const text = generateCitationText(paper, fmt);
+                      navigator.clipboard.writeText(text);
+                      setCitationCopiedFormat(fmt);
+                      setTimeout(() => {
+                        setCitationCopiedFormat(null);
+                        setShowCitationDropdown(false);
+                      }, 1200);
+                    }}
+                    className="w-full text-left px-2.5 py-1.5 hover:bg-[#F4F1EA] flex items-center justify-between cursor-pointer"
+                  >
+                    <span className="uppercase font-semibold">{fmt}</span>
+                    {citationCopiedFormat === fmt ? (
+                      <span className="text-[10px] text-emerald-600 font-bold">COPIED</span>
+                    ) : (
+                      <span className="text-[10px] text-[#77736B]">Copy</span>
+                    )}
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+
+          {/* Zen Focus Mode Button */}
+          <button
+            onClick={() => {
+              playTactileClick();
+              setIsZenMode(!isZenMode);
+            }}
+            className={`p-1.5 border border-[#141414]/25 transition-colors cursor-pointer ${
+              isZenMode ? 'bg-[#742421] text-white font-bold' : 'bg-white text-[#141414]'
+            }`}
+            title={isZenMode ? 'Exit Zen Focus Mode' : 'Enter Zen Focus Reading Mode'}
+          >
+            <span className="text-[10px] font-mono px-0.5">ZEN</span>
+          </button>
+
           <button
             onClick={() => setShowLeftNav(!showLeftNav)}
             className={`p-1.5 border border-[#141414]/25 transition-colors cursor-pointer ${
@@ -302,7 +379,7 @@ export const DedicatedReader: React.FC<DedicatedReaderProps> = ({
       {/* Main 3-Panel Reading Stage */}
       <div className="min-h-0 min-w-0 flex-1 flex overflow-hidden">
         {/* PANEL 1 (LEFT): Document Outline & Search */}
-        {showLeftNav && (
+        {!isZenMode && showLeftNav && (
           <aside className="fixed inset-y-12 left-0 z-40 w-72 lg:static lg:w-64 border-r border-[#141414]/15 bg-[#F4F2ED] flex flex-col justify-between overflow-y-auto select-none p-4 space-y-4 shadow-2xl lg:shadow-none">
             <div>
               <div className="flex items-center justify-between mb-2">
@@ -345,8 +422,31 @@ export const DedicatedReader: React.FC<DedicatedReaderProps> = ({
           </aside>
         )}
 
-        {/* PANEL 2 (CENTER): Main Reading Area */}
-        <main className="relative min-h-0 min-w-0 flex-1 overflow-hidden bg-[#EDEBE6]">
+        {/* PANEL 2 (CENTER): Main Reading Area with Canvas Theme */}
+        <main
+          className={`relative min-h-0 min-w-0 flex-1 overflow-hidden transition-colors duration-200 ${
+            canvasTheme === 'sepia'
+              ? 'bg-[#EFE6D5]'
+              : canvasTheme === 'slate'
+                ? 'bg-[#18181B]'
+                : canvasTheme === 'monochrome'
+                  ? 'bg-[#FFFFFF]'
+                  : 'bg-[#EDEBE6]'
+          }`}
+        >
+          {/* Ribbon Reading Marker */}
+          <div
+            className="absolute top-0 right-6 z-30 pointer-events-none drop-shadow-md select-none transition-all duration-300"
+            title={`Reading Progress: ${totalPages ? Math.round((currentPage / totalPages) * 100) : 0}%`}
+          >
+            <div className="w-6 h-12 bg-[#8B263E] border-b border-r border-[#5c1929] relative flex flex-col items-center justify-end pb-1 shadow-sm">
+              <div className="absolute -bottom-2 inset-x-0 border-solid border-t-[#8B263E] border-t-[8px] border-x-transparent border-x-[12px] border-b-0" />
+              <span className="text-[8px] font-mono font-bold text-amber-200 tracking-tighter">
+                {totalPages ? Math.round((currentPage / totalPages) * 100) : 0}%
+              </span>
+            </div>
+          </div>
+
           {PdfDocumentReader ? (
             <PdfDocumentReader
               key={paper.id}
@@ -366,7 +466,7 @@ export const DedicatedReader: React.FC<DedicatedReaderProps> = ({
         </main>
 
         {/* PANEL 3 (RIGHT): Highlights, Annotations & Bookmarks */}
-        {showRightNav && (
+        {!isZenMode && showRightNav && (
           <aside className="fixed inset-y-12 right-0 z-40 w-80 lg:static lg:w-80 border-l border-[#141414]/15 bg-[#F4F2ED] flex flex-col justify-between overflow-y-auto p-4 space-y-4 select-none shadow-2xl lg:shadow-none">
             <div>
               <div className="flex items-center justify-between border-b border-[#141414]/15 pb-2">

@@ -136,8 +136,10 @@ export const AiAssistantView: React.FC<AiAssistantViewProps> = ({
     setQuery('');
     setIsLoading(true);
 
+    const assistantMsgId = 'msg-res-' + Date.now();
+
     try {
-      const response = await fetch('/api/ai/ask', {
+      const response = await fetch('/api/ai/stream', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -157,21 +159,72 @@ export const AiAssistantView: React.FC<AiAssistantViewProps> = ({
         }),
       });
 
-      const data = await response.json().catch(() => ({}));
       if (!response.ok) {
-        if (data.code === 'API_KEY_REQUIRED') onShowApiKeyPrompt?.();
-        throw new Error(data.error || `AI request failed (${response.status}).`);
+        const errorData = await response.json().catch(() => ({}));
+        if (errorData.code === 'API_KEY_REQUIRED') onShowApiKeyPrompt?.();
+        throw new Error(errorData.error || `AI streaming failed (${response.status}).`);
       }
 
-      // Find citations in the returned response
+      // Initialize streaming assistant response
+      setMessages((prev) => [
+        ...prev,
+        {
+          id: assistantMsgId,
+          role: 'assistant',
+          content: '',
+          timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+          mode: modeToSend,
+        },
+      ]);
+
+      let accumulatedText = '';
+      if (response.body) {
+        const reader = response.body.getReader();
+        const decoder = new TextDecoder();
+        let buffer = '';
+
+        while (true) {
+          const { done, value } = await reader.read();
+          if (done) break;
+          buffer += decoder.decode(value, { stream: true });
+          const lines = buffer.split('\n');
+          buffer = lines.pop() || '';
+
+          for (const line of lines) {
+            const trimmed = line.trim();
+            if (!trimmed || !trimmed.startsWith('data: ')) continue;
+            const payload = trimmed.slice(6);
+            if (payload === '[DONE]') break;
+            try {
+              const parsed = JSON.parse(payload);
+              if (parsed.error) {
+                if (parsed.code === 'API_KEY_REQUIRED') onShowApiKeyPrompt?.();
+                throw new Error(parsed.error);
+              }
+              if (parsed.text) {
+                accumulatedText += parsed.text;
+                setMessages((prev) =>
+                  prev.map((m) =>
+                    m.id === assistantMsgId ? { ...m, content: accumulatedText } : m
+                  )
+                );
+              }
+            } catch (err) {
+              if (err instanceof Error && err.message.includes('API key')) throw err;
+            }
+          }
+        }
+      }
+
+      // Identify cited papers in final response
       const matchedCitations: CitationSource[] = [];
       targetPapers.forEach((p, idx) => {
         const authorsStr = Array.isArray(p.authors) ? p.authors.join(', ') : (p.authors || '');
         const primaryAuthor = authorsStr.split(',')[0].trim().toLowerCase();
         if (
-          data.answer.toLowerCase().includes(p.title.toLowerCase().slice(0, 30)) ||
-          data.answer.includes(`[Source ${idx + 1}`) ||
-          (primaryAuthor && data.answer.toLowerCase().includes(primaryAuthor))
+          accumulatedText.toLowerCase().includes(p.title.toLowerCase().slice(0, 30)) ||
+          accumulatedText.includes(`[Source ${idx + 1}`) ||
+          (primaryAuthor && accumulatedText.toLowerCase().includes(primaryAuthor))
         ) {
           matchedCitations.push({
             index: idx + 1,
@@ -183,16 +236,13 @@ export const AiAssistantView: React.FC<AiAssistantViewProps> = ({
         }
       });
 
-      const assistantMsg: Message = {
-        id: 'msg-res-' + Date.now(),
-        role: 'assistant',
-        content: data.answer,
-        timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-        mode: modeToSend,
-        citedPapers: matchedCitations.length > 0 ? matchedCitations : undefined,
-      };
-
-      setMessages((prev) => [...prev, assistantMsg]);
+      if (matchedCitations.length > 0) {
+        setMessages((prev) =>
+          prev.map((m) =>
+            m.id === assistantMsgId ? { ...m, citedPapers: matchedCitations } : m
+          )
+        );
+      }
     } catch (error) {
       const assistantMsg: Message = {
         id: 'msg-fallback-' + Date.now(),
@@ -502,6 +552,9 @@ export const AiAssistantView: React.FC<AiAssistantViewProps> = ({
                       }`}
                     >
                       {m.content}
+                      {isAssistant && isLoading && (
+                        <span className="inline-block w-2 h-4 bg-[#1F3FB0] ml-1.5 align-middle animate-pulse" />
+                      )}
                     </div>
 
                     {/* Cited sources section */}

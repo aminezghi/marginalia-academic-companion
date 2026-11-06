@@ -43,6 +43,7 @@ interface TopNavProps {
   onOpenImport: () => void;
   onOpenCompanionTools?: () => void;
   onOpenCustomizer?: () => void;
+  onOpenCommandPalette?: () => void;
   onLogout?: () => void;
   onOpenProfile?: () => void;
   onOpenAccountSettings?: () => void;
@@ -65,6 +66,7 @@ export const TopNav: React.FC<TopNavProps> = ({
   onOpenMethodologies,
   onOpenCompanionTools,
   onOpenCustomizer,
+  onOpenCommandPalette,
   onLogout,
   onOpenProfile,
   onOpenAccountSettings,
@@ -205,6 +207,24 @@ export const TopNav: React.FC<TopNavProps> = ({
 
         {/* RIGHT: Search, useful tools, and one profile control */}
         <div className="flex items-center gap-1.5 sm:gap-3 shrink-0">
+          {/* Quick Omnibox / Command Palette trigger */}
+          {onOpenCommandPalette && (
+            <button
+              type="button"
+              onClick={() => {
+                playTactileClick();
+                onOpenCommandPalette();
+              }}
+              className="flex items-center gap-1.5 px-2 py-1 rounded border border-[#1A1612]/20 hover:border-[#1F3FB0] bg-[#F4F1EA] text-[#4A433B] hover:text-[#1F3FB0] transition-colors cursor-pointer text-xs font-mono"
+              title="Command Palette (Cmd+K or /)"
+              aria-label="Open Command Palette"
+            >
+              <Search className="w-3.5 h-3.5 text-[#1F3FB0]" />
+              <span className="hidden xl:inline text-[11px] font-serif">Omnibox</span>
+              <kbd className="text-[10px] bg-[#EDE8DD] px-1 py-0.2 rounded border border-[#1A1612]/20 font-mono">⌘K</kbd>
+            </button>
+          )}
+
           {/* Minimal Underlined Search Bar - visible on all screens */}
           {onSearchChange && (
             <div className="hidden lg:flex items-center gap-1.5 border-b border-[#1A1612]/25 focus-within:border-[#1A1612] pb-1 px-1 w-24 md:w-32 xl:w-56 transition-colors">

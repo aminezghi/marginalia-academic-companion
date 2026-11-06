@@ -19,7 +19,8 @@ export const VintageBankersLamp: React.FC<VintageBankersLampProps> = ({
 }) => {
   const [isPulling, setIsPulling] = useState(false);
 
-  const handlePullChain = (e: React.MouseEvent) => {
+  const handlePullChain = (e: React.MouseEvent | React.PointerEvent) => {
+    e.preventDefault();
     e.stopPropagation();
     setIsPulling(true);
     playTactileClick();
@@ -29,11 +30,16 @@ export const VintageBankersLamp: React.FC<VintageBankersLampProps> = ({
 
   return (
     <div
-      className={`relative select-none flex flex-col items-center group ${className}`}
+      data-lamp="true"
+      data-shelf-interactive="true"
+      className={`relative select-none flex flex-col items-center group cursor-pointer pointer-events-auto ${className}`}
       role="button"
       tabIndex={0}
       aria-label="Vintage Emeralite Banker's Lamp. Click or pull chain to toggle Nocturne Night Mode"
       aria-pressed={isLit}
+      onMouseDown={(e) => e.stopPropagation()}
+      onPointerDown={(e) => e.stopPropagation()}
+      onTouchStart={(e) => e.stopPropagation()}
       onClick={handlePullChain}
       onKeyDown={(e) => {
         if (e.key === 'Enter' || e.key === ' ') {

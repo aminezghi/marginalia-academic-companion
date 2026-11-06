@@ -133,6 +133,7 @@ export const ShelfArchive: React.FC<ShelfArchiveProps> = ({
   const totalDragPixelsRef = useRef<number>(0);
   const pointerHistoryRef = useRef<PointerSample[]>([]);
   const wheelSettleTimeoutRef = useRef<number | null>(null);
+  const bookClickStartRef = useRef<{ x: number; y: number; time: number } | null>(null);
 
   const lastSoundBookRef = useRef<number>(safeActiveIndex);
   const lastReportedSelectRef = useRef<number>(safeActiveIndex);
@@ -388,7 +389,10 @@ export const ShelfArchive: React.FC<ShelfArchiveProps> = ({
   // Mouse drag handlers (attaches window listeners so dragging works smoothly across the entire screen)
   const handleMouseDown = (e: React.MouseEvent<HTMLDivElement>) => {
     if (e.button !== 0) return;
-    if ((e.target as HTMLElement).closest('[data-shelf-nav-btn="true"]')) {
+    if (
+      (e.target as HTMLElement).closest('[data-shelf-nav-btn="true"]') ||
+      (e.target as HTMLElement).closest('[data-lamp="true"]')
+    ) {
       return;
     }
     beginDragAt(e.clientX, false);
@@ -413,7 +417,10 @@ export const ShelfArchive: React.FC<ShelfArchiveProps> = ({
 
   // Touch drag handlers for mobile/tablet with touch slop awareness
   const handleTouchStart = (e: React.TouchEvent<HTMLDivElement>) => {
-    if ((e.target as HTMLElement).closest('[data-shelf-nav-btn="true"]')) {
+    if (
+      (e.target as HTMLElement).closest('[data-shelf-nav-btn="true"]') ||
+      (e.target as HTMLElement).closest('[data-lamp="true"]')
+    ) {
       return;
     }
     if (e.touches.length > 0) {
@@ -579,31 +586,8 @@ export const ShelfArchive: React.FC<ShelfArchiveProps> = ({
   // Safe Stage geometry bounded between left botanical ivy and right banker's lamp:
   const leftClearance = isMobile ? 32 : 72;
   const lampClearance = isMobile ? 96 : 148;
-  const safeLeft = leftClearance + 16;
-  const safeRight = Math.max(safeLeft + 300, containerWidth - lampClearance - 16);
-  const safeWidth = Math.max(280, safeRight - safeLeft);
-  const safeCenterFromContainerLeft = safeLeft + safeWidth / 2;
-  const safeCenterShift = safeCenterFromContainerLeft - (containerWidth / 2);
-
-  // Total book span along the shelf:
-  const totalBooksWidth =
-    bookLayout[maxIdx].centerX + bookLayout[maxIdx].shelfSlotWidth / 2;
-  const book0LeftEdge =
-    bookLayout[0].centerX - bookLayout[0].shelfSlotWidth / 2;
-  const totalSpan = totalBooksWidth - book0LeftEdge;
-
-  let effectiveCameraX: number;
-  if (totalSpan <= safeWidth) {
-    // All books comfortably fit inside the safe reading stage!
-    // Center the entire collection of books inside the safe zone:
-    effectiveCameraX = book0LeftEdge + totalSpan / 2;
-  } else {
-    // Collection is larger than the stage; smoothly glide camera with visualIndex,
-    // bounded so books never slide past the safe margins into the lamp:
-    const minCameraX = book0LeftEdge + safeWidth / 2;
-    const maxCameraX = totalBooksWidth - safeWidth / 2;
-    effectiveCameraX = Math.max(minCameraX, Math.min(maxCameraX, rawCameraX));
-  }
+  const readingCenterShift = (leftClearance - lampClearance) / 2;
+  const cameraX = rawCameraX;
 
   const velocitySwayDeg = Math.max(-3.2, Math.min(3.2, currentVelocity * 0.28));
   const nearestCenterIndex = Math.round(clampedVisual);
@@ -682,7 +666,7 @@ export const ShelfArchive: React.FC<ShelfArchiveProps> = ({
       </div>
 
       {/* RIGHT VINTAGE BANKER'S DESK LAMP SITTING ON WOODEN SHELF PLANK */}
-      <div className="absolute right-3 sm:right-6 md:right-8 bottom-[26px] sm:bottom-[34px] md:bottom-[38px] z-30 pointer-events-auto">
+      <div className="absolute right-3 sm:right-6 md:right-8 bottom-[26px] sm:bottom-[34px] md:bottom-[38px] z-50 pointer-events-auto">
         <VintageBankersLamp
           isLit={isNightMode}
           onToggle={onToggleNightMode || (() => {})}
@@ -782,7 +766,7 @@ export const ShelfArchive: React.FC<ShelfArchiveProps> = ({
 
       {/* 3D BOOKSHELF STAGE — FRAMER MOTION SPRING-DRIVEN BOOK VOLUMES */}
       <div
-        className="relative w-full h-full flex items-end justify-center preserve-3d z-30"
+        className="relative w-full h-full flex items-end justify-center preserve-3d z-30 pointer-events-none"
         style={{
           transformStyle: 'preserve-3d',
         }}
@@ -807,12 +791,8 @@ export const ShelfArchive: React.FC<ShelfArchiveProps> = ({
           const isHovered = hoveredIndex === index;
           const isPulledOut = isCenterActive && pulledOutBookId === item.id;
 
-          // Reading Area Alignment: bounded within the safe stage between left ivy and right banker's lamp
-          const translateX = (centerX - effectiveCameraX) + safeCenterShift;
-          const bookScreenRight = (containerWidth / 2) + translateX + currentWidth / 2;
-          const lampFade = bookScreenRight > safeRight + 20
-            ? Math.max(0, 1 - (bookScreenRight - (safeRight + 20)) / 50)
-            : 1;
+          // Reading Area Alignment: centers active volume between left ivy and right banker's lamp
+          const translateX = centerX - cameraX + readingCenterShift;
 
           // Pull forward realistically: extra Z & slight lift when clicked (`isPulledOut`)
           const baseActiveZ = isMobile ? 44 : 68;
@@ -870,24 +850,41 @@ export const ShelfArchive: React.FC<ShelfArchiveProps> = ({
           return (
             <motion.div
               key={item.id}
-              className="absolute bottom-0 preserve-3d transition-[filter] duration-200 cursor-pointer"
+              data-shelf-book="true"
+              className="absolute bottom-0 preserve-3d transition-[filter] duration-200 cursor-pointer pointer-events-auto select-none"
               style={{
                 width: `${currentWidth.toFixed(1)}px`,
                 height: `${currentHeight.toFixed(1)}px`,
                 transform,
                 zIndex,
-                opacity: lampFade,
-                pointerEvents: lampFade < 0.2 ? 'none' : 'auto',
                 transformOrigin: '50% 100%',
                 willChange: 'transform, width, height',
                 filter: isNightMode
                   ? 'drop-shadow(-8px 10px 16px rgba(0,0,0,0.85)) drop-shadow(-2px 4px 6px rgba(0,0,0,0.55))'
                   : undefined,
               }}
+              onPointerDown={(e) => {
+                if (e.button !== 0 && e.pointerType === 'mouse') return;
+                bookClickStartRef.current = {
+                  x: e.clientX,
+                  y: e.clientY,
+                  time: performance.now(),
+                };
+              }}
+              onPointerUp={(e) => {
+                if (!bookClickStartRef.current) return;
+                const dx = Math.abs(e.clientX - bookClickStartRef.current.x);
+                const dy = Math.abs(e.clientY - bookClickStartRef.current.y);
+                const dt = performance.now() - bookClickStartRef.current.time;
+                bookClickStartRef.current = null;
+                // If the pointer contact stayed within 16px and was released within 800ms, it is a click!
+                if (dx < 16 && dy < 16 && dt < 800) {
+                  e.stopPropagation();
+                  handleBookSelect();
+                }
+              }}
               onClick={(e) => {
                 e.stopPropagation();
-                // If user made an intentional dragging motion on the shelf, ignore click
-                if (isDragGestureRef.current) return;
                 handleBookSelect();
               }}
               onDoubleClick={(e) => {

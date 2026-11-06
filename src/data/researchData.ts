@@ -344,7 +344,7 @@ export const RESEARCHER_PROFILE: ResearcherProfile = {
     {
       label: 'ORCID',
       handle: '0009-0004-9407-7815',
-      url: 'https://orcid.org',
+      url: 'https://orcid.org/0009-0004-9407-7815',
       available: true,
     },
     {

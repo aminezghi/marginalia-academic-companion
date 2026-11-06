@@ -22,6 +22,7 @@
   --cobalt: #1F3FB0;
   --green: #536B52;
   --rule: rgba(20, 20, 20, 0.14);
+  transition: background-color 0.35s ease, color 0.35s ease;
 }
 
 /* Base Archival Styles */
@@ -30,6 +31,7 @@ html {
   background-color: var(--paper);
   color: var(--ink);
   scroll-behavior: smooth;
+  transition: background-color 0.35s ease, color 0.35s ease;
 }
 
 body {
@@ -40,6 +42,7 @@ body {
   overflow-x: hidden;
   text-rendering: optimizeLegibility;
   -webkit-font-smoothing: antialiased;
+  transition: background-color 0.35s ease, color 0.35s ease;
 }
 
 /* Subtle paper texture overlay */
@@ -108,6 +111,153 @@ body {
 .writing-vertical {
   writing-mode: vertical-rl;
   text-orientation: mixed;
+}
+
+/* ========================================================================= */
+/* NOCTURNE STUDY / DARK ACADEMIA NIGHT MODE                                 */
+/* Activated when the vintage desk lamp is lit on the shelf                  */
+/* ========================================================================= */
+html.theme-nocturne,
+html.dark {
+  --color-paper: #121110;
+  --color-sheet: #1A1815;
+  --color-ink: #EDE8DF;
+  --color-muted: #A39B8E;
+  --color-cobalt: #8BA8FF;
+  --color-green: #799A75;
+  --color-rule: rgba(237, 232, 223, 0.14);
+
+  --paper: #121110;
+  --sheet: #1A1815;
+  --ink: #EDE8DF;
+  --muted: #A39B8E;
+  --cobalt: #8BA8FF;
+  --green: #799A75;
+  --rule: rgba(237, 232, 223, 0.14);
+  background-color: #121110 !important;
+  color: #EDE8DF !important;
+  color-scheme: dark;
+}
+
+html.theme-nocturne body,
+html.dark body {
+  background-color: #121110 !important;
+  color: #EDE8DF !important;
+}
+
+/* Paper grain adaptation in night mode */
+html.theme-nocturne .paper-grain,
+html.dark .paper-grain {
+  background-image: radial-gradient(rgba(240, 230, 210, 0.05) 1px, transparent 0);
+}
+
+/* Seamless Night Mode overrides for vintage cream surfaces */
+html.theme-nocturne .bg-\[\#EDEBE6\],
+html.dark .bg-\[\#EDEBE6\] {
+  background-color: #121110 !important;
+}
+
+html.theme-nocturne .bg-\[\#F4F2ED\],
+html.dark .bg-\[\#F4F2ED\] {
+  background-color: #1A1815 !important;
+}
+
+html.theme-nocturne .bg-\[\#EDEBE6\]\/90,
+html.dark .bg-\[\#EDEBE6\]\/90,
+html.theme-nocturne .bg-\[\#EDEBE6\]\/95,
+html.dark .bg-\[\#EDEBE6\]\/95 {
+  background-color: rgba(18, 17, 16, 0.95) !important;
+}
+
+html.theme-nocturne .bg-\[\#F4F2ED\]\/90,
+html.dark .bg-\[\#F4F2ED\]\/90,
+html.theme-nocturne .bg-\[\#F4F2ED\]\/95,
+html.dark .bg-\[\#F4F2ED\]\/95 {
+  background-color: rgba(26, 24, 21, 0.95) !important;
+}
+
+html.theme-nocturne .bg-\[\#E6E2D8\],
+html.dark .bg-\[\#E6E2D8\] {
+  background-color: #24211C !important;
+}
+
+html.theme-nocturne .bg-\[\#DFDBD2\],
+html.dark .bg-\[\#DFDBD2\] {
+  background-color: #2A2620 !important;
+}
+
+html.theme-nocturne .bg-white,
+html.dark .bg-white {
+  background-color: #1E1C18 !important;
+}
+
+html.theme-nocturne .bg-white\/95,
+html.dark .bg-white\/95 {
+  background-color: rgba(30, 28, 24, 0.95) !important;
+}
+
+/* Typography contrast in night mode */
+html.theme-nocturne .text-\[\#141414\],
+html.dark .text-\[\#141414\] {
+  color: #EDE8DF !important;
+}
+
+html.theme-nocturne .text-\[\#2B2823\],
+html.dark .text-\[\#2B2823\] {
+  color: #DDD6CA !important;
+}
+
+html.theme-nocturne .text-\[\#4A433B\],
+html.dark .text-\[\#4A433B\] {
+  color: #C0B7A8 !important;
+}
+
+html.theme-nocturne .text-\[\#77736B\],
+html.dark .text-\[\#77736B\] {
+  color: #9C9588 !important;
+}
+
+html.theme-nocturne .text-\[\#5A554D\],
+html.dark .text-\[\#5A554D\] {
+  color: #AEA698 !important;
+}
+
+/* Subtle border tone in dark academia mode */
+html.theme-nocturne .border-\[\#141414\]\/10,
+html.dark .border-\[\#141414\]\/10,
+html.theme-nocturne .border-\[\#141414\]\/12,
+html.dark .border-\[\#141414\]\/12,
+html.theme-nocturne .border-\[\#141414\]\/15,
+html.dark .border-\[\#141414\]\/15,
+html.theme-nocturne .border-\[\#141414\]\/20,
+html.dark .border-\[\#141414\]\/20,
+html.theme-nocturne .border-\[\#141414\]\/25,
+html.dark .border-\[\#141414\]\/25 {
+  border-color: rgba(237, 232, 223, 0.12) !important;
+}
+
+html.theme-nocturne .hairline-b,
+html.dark .hairline-b,
+html.theme-nocturne .hairline-t,
+html.dark .hairline-t,
+html.theme-nocturne .hairline-r,
+html.dark .hairline-r,
+html.theme-nocturne .hairline-l,
+html.dark .hairline-l,
+html.theme-nocturne .hairline-all,
+html.dark .hairline-all {
+  border-color: rgba(237, 232, 223, 0.12) !important;
+}
+
+/* Custom scrollbar in night mode */
+html.theme-nocturne ::-webkit-scrollbar-thumb,
+html.dark ::-webkit-scrollbar-thumb {
+  background: rgba(237, 232, 223, 0.22);
+}
+
+html.theme-nocturne ::-webkit-scrollbar-thumb:hover,
+html.dark ::-webkit-scrollbar-thumb:hover {
+  background: rgba(212, 175, 55, 0.6);
 }
 
 @media (prefers-reduced-motion: reduce) {

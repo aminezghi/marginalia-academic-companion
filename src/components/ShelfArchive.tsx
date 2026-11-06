@@ -22,6 +22,7 @@ import {
 } from '../data/bookAppearanceData';
 import { playPaperRustle, playTactileClick } from '../utils/sound';
 import { ChevronLeft, ChevronRight, Palette } from 'lucide-react';
+import { VintageBankersLamp } from './VintageBankersLamp';
 
 interface ShelfArchiveProps {
   items: ResearchItem[];
@@ -32,6 +33,8 @@ interface ShelfArchiveProps {
   onCustomizeBook?: (item: ResearchItem) => void;
   shelfMaterial?: ShelfWoodMaterial;
   categoryAppearances?: Record<string, CollectionAppearance>;
+  isNightMode?: boolean;
+  onToggleNightMode?: () => void;
   onCursorChange?: (state: {
     isHoveringActive?: boolean;
     label?: string;
@@ -71,6 +74,8 @@ export const ShelfArchive: React.FC<ShelfArchiveProps> = ({
   onCustomizeBook,
   shelfMaterial = 'walnut',
   categoryAppearances = DEFAULT_CATEGORY_APPEARANCES,
+  isNightMode = false,
+  onToggleNightMode,
   onCursorChange,
 }) => {
   const containerRef = useRef<HTMLDivElement>(null);
@@ -543,12 +548,13 @@ export const ShelfArchive: React.FC<ShelfArchiveProps> = ({
       onDragStart={(e) => e.preventDefault()}
       aria-label="Marginalia Vintage Academic Bookshelf"
     >
-      {/* Warm Library Ambient Spotlight from Above */}
+      {/* Warm Library Ambient Spotlight from Above (Or Directional Desk Lamp Beam in Night Mode) */}
       <div
-        className="absolute inset-0 pointer-events-none"
+        className="absolute inset-0 pointer-events-none transition-all duration-700 ease-out"
         style={{
-          background:
-            'radial-gradient(ellipse 68% 75% at 50% 25%, rgba(255, 250, 238, 0.55) 0%, rgba(225, 214, 195, 0.18) 60%, rgba(190, 175, 152, 0.25) 100%)',
+          background: isNightMode
+            ? 'radial-gradient(ellipse 820px 560px at 86% 72%, rgba(254, 240, 138, 0.24) 0%, rgba(245, 158, 11, 0.11) 36%, rgba(14, 13, 12, 0.85) 82%)'
+            : 'radial-gradient(ellipse 68% 75% at 50% 25%, rgba(255, 250, 238, 0.55) 0%, rgba(225, 214, 195, 0.18) 60%, rgba(190, 175, 152, 0.25) 100%)',
         }}
       />
 
@@ -600,34 +606,12 @@ export const ShelfArchive: React.FC<ShelfArchiveProps> = ({
         </svg>
       </div>
 
-      {/* RIGHT DECORATIVE VINTAGE LIBRARY GLOBE BOOKEND */}
-      <div className="hidden xl:flex absolute right-2 bottom-9 w-24 h-44 pointer-events-none z-35 items-end justify-end opacity-85">
-        <svg viewBox="0 0 90 150" className="w-24 h-40" fill="none">
-          <ellipse cx="52" cy="142" rx="22" ry="5" fill="#3A2616" />
-          <path d="M46 140 L 52 114 L 58 140 Z" fill="#6E5233" />
-          <path
-            d="M52 34 A 42 42 0 0 1 52 118"
-            stroke="#8C6D3B"
-            strokeWidth="3.5"
-            fill="none"
-          />
-          <circle
-            cx="48"
-            cy="76"
-            r="36"
-            fill="#D4C7AE"
-            stroke="#5A4732"
-            strokeWidth="1.5"
-          />
-          <ellipse cx="48" cy="76" rx="36" ry="12" stroke="#6E5D47" strokeWidth="0.8" />
-          <ellipse cx="48" cy="76" rx="16" ry="36" stroke="#6E5D47" strokeWidth="0.8" />
-          <line x1="12" y1="76" x2="84" y2="76" stroke="#5A4732" strokeWidth="1.1" />
-          <path
-            d="M32 58 Q 45 52, 58 62 T 66 82 Q 52 92, 38 84 Z"
-            fill="#8F9E8B"
-            opacity="0.55"
-          />
-        </svg>
+      {/* RIGHT VINTAGE BANKER'S DESK LAMP SITTING ON WOODEN SHELF PLANK */}
+      <div className="absolute right-2 sm:right-6 md:right-10 bottom-7 sm:bottom-9 z-40">
+        <VintageBankersLamp
+          isLit={isNightMode}
+          onToggle={onToggleNightMode || (() => {})}
+        />
       </div>
 
       {/* LEFT CIRCULAR NAVIGATION BUTTON (<) */}
@@ -797,6 +781,9 @@ export const ShelfArchive: React.FC<ShelfArchiveProps> = ({
                 zIndex,
                 transformOrigin: '50% 100%',
                 willChange: 'transform, width, height',
+                filter: isNightMode
+                  ? 'drop-shadow(-8px 10px 16px rgba(0,0,0,0.85)) drop-shadow(-2px 4px 6px rgba(0,0,0,0.55))'
+                  : undefined,
               }}
               onClick={(e) => {
                 e.stopPropagation();

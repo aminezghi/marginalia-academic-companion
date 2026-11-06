@@ -33,6 +33,8 @@ interface CommandPaletteProps {
   onExportObsidian: () => void;
   shelfMaterial: ShelfWoodMaterial;
   onChangeShelfMaterial: (mat: ShelfWoodMaterial) => void;
+  isNightMode?: boolean;
+  onToggleNightMode?: () => void;
 }
 
 interface CommandItem {
@@ -59,6 +61,8 @@ export const CommandPalette: React.FC<CommandPaletteProps> = ({
   onExportObsidian,
   shelfMaterial,
   onChangeShelfMaterial,
+  isNightMode = false,
+  onToggleNightMode,
 }) => {
   const [query, setQuery] = useState('');
   const [selectedIndex, setSelectedIndex] = useState(0);
@@ -138,6 +142,26 @@ export const CommandPalette: React.FC<CommandPaletteProps> = ({
           onClose();
         },
       },
+      ...(onToggleNightMode
+        ? [
+            {
+              id: 'action-toggle-night-lamp',
+              category: 'Actions' as const,
+              title: isNightMode
+                ? 'Extinguish Vintage Desk Lamp (Daylight Study)'
+                : 'Illuminate Vintage Banker\'s Lamp (Nocturne Night Mode)',
+              subtitle: isNightMode
+                ? 'Turn off the green desk lamp and switch back to daylight study mode'
+                : 'Light up the emerald banker\'s desk lamp and activate dark academia night mode',
+              icon: Sparkles,
+              badge: isNightMode ? 'Nocturne ON' : 'Night Lamp',
+              perform: () => {
+                onToggleNightMode();
+                onClose();
+              },
+            },
+          ]
+        : []),
 
       // Navigation
       {

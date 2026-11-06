@@ -18,6 +18,8 @@ import {
   User,
   LogOut,
   ChevronDown,
+  Moon,
+  Sun,
 } from 'lucide-react';
 import { playTactileClick } from '../utils/sound';
 
@@ -51,6 +53,8 @@ interface TopNavProps {
   onSearchChange?: (query: string) => void;
   soundEnabled: boolean;
   onToggleSound: () => void;
+  isNightMode?: boolean;
+  onToggleNightMode?: () => void;
   readingNowCount?: number;
   totalNotesCount?: number;
   isGuest?: boolean;
@@ -74,6 +78,8 @@ export const TopNav: React.FC<TopNavProps> = ({
   onSearchChange,
   soundEnabled,
   onToggleSound,
+  isNightMode = false,
+  onToggleNightMode,
   readingNowCount = 0,
   totalNotesCount = 0,
   isGuest = false,
@@ -296,6 +302,34 @@ export const TopNav: React.FC<TopNavProps> = ({
             </button>
           )}
 
+          {/* Night Mode / Vintage Desk Lamp Toggle */}
+          {onToggleNightMode && (
+            <button
+              type="button"
+              onClick={() => {
+                playTactileClick();
+                onToggleNightMode();
+              }}
+              className={`p-1.5 transition-colors cursor-pointer rounded ${
+                isNightMode
+                  ? 'text-[#F59E0B] hover:text-[#FBBF24] bg-[#F59E0B]/10'
+                  : 'text-[#4A433B] hover:text-[#141414]'
+              }`}
+              title={
+                isNightMode
+                  ? 'Extinguish desk lamp (Switch to Daylight Study)'
+                  : 'Illuminate desk lamp (Switch to Nocturne Library Night Mode)'
+              }
+              aria-label="Toggle Nocturne Night Mode"
+            >
+              {isNightMode ? (
+                <Sun className="w-4 h-4" />
+              ) : (
+                <Moon className="w-4 h-4" />
+              )}
+            </button>
+          )}
+
           {/* Sound Toggle */}
           <button
             type="button"
@@ -439,6 +473,20 @@ export const TopNav: React.FC<TopNavProps> = ({
               >
                 <Palette className="w-3.5 h-3.5" />
                 <span>Customize Shelf</span>
+              </button>
+            )}
+            {onToggleNightMode && (
+              <button
+                onClick={() => {
+                  playTactileClick();
+                  onToggleNightMode();
+                }}
+                className={`flex items-center gap-1 cursor-pointer font-medium ${
+                  isNightMode ? 'text-[#F59E0B]' : 'text-[#4A433B]'
+                }`}
+              >
+                {isNightMode ? <Sun className="w-3.5 h-3.5" /> : <Moon className="w-3.5 h-3.5" />}
+                <span>{isNightMode ? 'Day Mode' : 'Night Lamp'}</span>
               </button>
             )}
             <button

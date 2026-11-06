@@ -167,6 +167,26 @@ export default function App() {
     }
   }, [activeView, geminiConfigured]);
 
+  // Vintage Banker's Desk Lamp & Nocturne Night Mode State
+  const [isNightMode, setIsNightMode] = useState<boolean>(() => {
+    if (typeof window === 'undefined') return false;
+    return localStorage.getItem('marginalia_night_mode') === 'true';
+  });
+
+  useEffect(() => {
+    if (isNightMode) {
+      document.documentElement.classList.add('theme-nocturne', 'dark');
+      localStorage.setItem('marginalia_night_mode', 'true');
+    } else {
+      document.documentElement.classList.remove('theme-nocturne', 'dark');
+      localStorage.setItem('marginalia_night_mode', 'false');
+    }
+  }, [isNightMode]);
+
+  const toggleNightMode = useCallback(() => {
+    setIsNightMode((prev) => !prev);
+  }, []);
+
   // Shelf Navigation & Search States
   const [activeCategory, setActiveCategory] = useState<ResearchCategory>('ALL');
   const [searchQuery, setSearchQuery] = useState<string>('');
@@ -1404,6 +1424,8 @@ export default function App() {
         onExportObsidian={handleExportObsidianVault}
         shelfMaterial={shelfMaterial}
         onChangeShelfMaterial={setShelfMaterial}
+        isNightMode={isNightMode}
+        onToggleNightMode={toggleNightMode}
       />
 
       {/* Top Editorial Navigation */}
@@ -1413,6 +1435,8 @@ export default function App() {
         affiliation={`${profile.primaryAffiliation} · FutureData4EU`}
         activeView={activeView}
         onChangeView={setActiveView}
+        isNightMode={isNightMode}
+        onToggleNightMode={toggleNightMode}
         onOpenAbout={() => {
           playTactileClick();
           setIsAboutOpen(true);
@@ -1558,6 +1582,8 @@ export default function App() {
                 }}
                 shelfMaterial={shelfMaterial}
                 categoryAppearances={categoryAppearances}
+                isNightMode={isNightMode}
+                onToggleNightMode={toggleNightMode}
                 onCursorChange={setCursorState}
               />
 
@@ -1860,7 +1886,11 @@ export default function App() {
 
       {/* Minimal Editorial Footer (Shown when in shelf or catalog mode) */}
       <div className="pb-14 md:pb-0">
-        <Footer affiliation={`${profile.primaryAffiliation} · FutureData4EU`} madeBy="Made by Amine" />
+        <Footer
+          affiliation="University of Parma · Department of Food and Drug · FutureData4EU"
+          madeBy="Amine Zouaghi"
+          isNightMode={isNightMode}
+        />
       </div>
 
       {/* MODALS & WORKSPACES */}

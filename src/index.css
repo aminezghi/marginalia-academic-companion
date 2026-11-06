@@ -151,78 +151,114 @@ html.dark .paper-grain {
   background-image: radial-gradient(rgba(240, 230, 210, 0.05) 1px, transparent 0);
 }
 
-/* Seamless Night Mode overrides for vintage cream surfaces */
+/* 1. Global Page Backgrounds in Night Mode */
+html.theme-nocturne .bg-\[\#EDE8DD\],
+html.dark .bg-\[\#EDE8DD\],
 html.theme-nocturne .bg-\[\#EDEBE6\],
 html.dark .bg-\[\#EDEBE6\] {
   background-color: #121110 !important;
 }
 
+/* 2. Secondary Card & Surface Backgrounds in Night Mode */
+html.theme-nocturne .bg-\[\#ECE6D8\],
+html.dark .bg-\[\#ECE6D8\],
+html.theme-nocturne .bg-\[\#F8F5EE\],
+html.dark .bg-\[\#F8F5EE\],
+html.theme-nocturne .bg-\[\#F4F1EA\],
+html.dark .bg-\[\#F4F1EA\],
 html.theme-nocturne .bg-\[\#F4F2ED\],
-html.dark .bg-\[\#F4F2ED\] {
+html.dark .bg-\[\#F4F2ED\],
+html.theme-nocturne .bg-\[\#F5F1E8\],
+html.dark .bg-\[\#F5F1E8\],
+html.theme-nocturne .bg-\[\#F5F1EA\],
+html.dark .bg-\[\#F5F1EA\],
+html.theme-nocturne .bg-\[\#EAE5D9\],
+html.dark .bg-\[\#EAE5D9\],
+html.theme-nocturne .bg-\[\#E7E4DC\],
+html.dark .bg-\[\#E7E4DC\],
+html.theme-nocturne .bg-\[\#E7E2D6\],
+html.dark .bg-\[\#E7E2D6\],
+html.theme-nocturne .bg-\[\#E6E3DB\],
+html.dark .bg-\[\#E6E3DB\],
+html.theme-nocturne .bg-\[\#E5DFD3\],
+html.dark .bg-\[\#E5DFD3\],
+html.theme-nocturne .bg-\[\#E5DEC9\],
+html.dark .bg-\[\#E5DEC9\],
+html.theme-nocturne .bg-\[\#EFE6D5\],
+html.dark .bg-\[\#EFE6D5\],
+html.theme-nocturne .bg-\[\#EFECE4\],
+html.dark .bg-\[\#EFECE4\],
+html.theme-nocturne .bg-\[\#F9F7F2\],
+html.dark .bg-\[\#F9F7F2\],
+html.theme-nocturne .bg-\[\#FAF9F5\],
+html.dark .bg-\[\#FAF9F5\],
+html.theme-nocturne .bg-white,
+html.dark .bg-white {
   background-color: #1A1815 !important;
 }
 
+/* Semi-transparent surface backgrounds */
+html.theme-nocturne .bg-\[\#EDE8DD\]\/95,
+html.dark .bg-\[\#EDE8DD\]\/95,
 html.theme-nocturne .bg-\[\#EDEBE6\]\/90,
 html.dark .bg-\[\#EDEBE6\]\/90,
 html.theme-nocturne .bg-\[\#EDEBE6\]\/95,
-html.dark .bg-\[\#EDEBE6\]\/95 {
-  background-color: rgba(18, 17, 16, 0.95) !important;
-}
-
+html.dark .bg-\[\#EDEBE6\]\/95,
 html.theme-nocturne .bg-\[\#F4F2ED\]\/90,
 html.dark .bg-\[\#F4F2ED\]\/90,
 html.theme-nocturne .bg-\[\#F4F2ED\]\/95,
 html.dark .bg-\[\#F4F2ED\]\/95 {
-  background-color: rgba(26, 24, 21, 0.95) !important;
+  background-color: rgba(22, 20, 18, 0.95) !important;
 }
 
-html.theme-nocturne .bg-\[\#E6E2D8\],
-html.dark .bg-\[\#E6E2D8\] {
-  background-color: #24211C !important;
+html.theme-nocturne .bg-\[\#ECE6D8\]\/70,
+html.dark .bg-\[\#ECE6D8\]\/70,
+html.theme-nocturne .bg-\[\#ECE6D8\]\/55,
+html.dark .bg-\[\#ECE6D8\]\/55,
+html.theme-nocturne .bg-\[\#F5F1E8\]\/70,
+html.dark .bg-\[\#F5F1E8\]\/70 {
+  background-color: rgba(26, 24, 21, 0.8) !important;
 }
 
-html.theme-nocturne .bg-\[\#DFDBD2\],
-html.dark .bg-\[\#DFDBD2\] {
-  background-color: #2A2620 !important;
-}
-
-html.theme-nocturne .bg-white,
-html.dark .bg-white {
-  background-color: #1E1C18 !important;
-}
-
-html.theme-nocturne .bg-white\/95,
-html.dark .bg-white\/95 {
-  background-color: rgba(30, 28, 24, 0.95) !important;
-}
-
-/* Typography contrast in night mode */
+/* 3. Typography contrast in Night Mode */
 html.theme-nocturne .text-\[\#141414\],
-html.dark .text-\[\#141414\] {
+html.dark .text-\[\#141414\],
+html.theme-nocturne .text-\[\#1A1612\],
+html.dark .text-\[\#1A1612\],
+html.theme-nocturne .text-\[\#1E1A16\],
+html.dark .text-\[\#1E1A16\],
+html.theme-nocturne .text-\[\#2C2520\],
+html.dark .text-\[\#2C2520\],
+html.theme-nocturne .text-\[\#2B2823\],
+html.dark .text-\[\#2B2823\] {
   color: #EDE8DF !important;
 }
 
-html.theme-nocturne .text-\[\#2B2823\],
-html.dark .text-\[\#2B2823\] {
-  color: #DDD6CA !important;
-}
-
+html.theme-nocturne .text-\[\#35302B\],
+html.dark .text-\[\#35302B\],
+html.theme-nocturne .text-\[\#3A342D\],
+html.dark .text-\[\#3A342D\],
 html.theme-nocturne .text-\[\#4A433B\],
 html.dark .text-\[\#4A433B\] {
   color: #C0B7A8 !important;
 }
 
-html.theme-nocturne .text-\[\#77736B\],
-html.dark .text-\[\#77736B\] {
-  color: #9C9588 !important;
-}
-
+html.theme-nocturne .text-\[\#5A5248\],
+html.dark .text-\[\#5A5248\],
+html.theme-nocturne .text-\[\#5A534A\],
+html.dark .text-\[\#5A534A\],
 html.theme-nocturne .text-\[\#5A554D\],
-html.dark .text-\[\#5A554D\] {
-  color: #AEA698 !important;
+html.dark .text-\[\#5A554D\],
+html.theme-nocturne .text-\[\#6E675F\],
+html.dark .text-\[\#6E675F\],
+html.theme-nocturne .text-\[\#77736B\],
+html.dark .text-\[\#77736B\],
+html.theme-nocturne .text-\[\#8C8275\],
+html.dark .text-\[\#8C8275\] {
+  color: #9E9689 !important;
 }
 
-/* Subtle border tone in dark academia mode */
+/* 4. Borders in Night Mode */
 html.theme-nocturne .border-\[\#141414\]\/10,
 html.dark .border-\[\#141414\]\/10,
 html.theme-nocturne .border-\[\#141414\]\/12,
@@ -232,7 +268,19 @@ html.dark .border-\[\#141414\]\/15,
 html.theme-nocturne .border-\[\#141414\]\/20,
 html.dark .border-\[\#141414\]\/20,
 html.theme-nocturne .border-\[\#141414\]\/25,
-html.dark .border-\[\#141414\]\/25 {
+html.dark .border-\[\#141414\]\/25,
+html.theme-nocturne .border-\[\#141414\]\/30,
+html.dark .border-\[\#141414\]\/30,
+html.theme-nocturne .border-\[\#1E1A16\]\/10,
+html.dark .border-\[\#1E1A16\]\/10,
+html.theme-nocturne .border-\[\#1E1A16\]\/12,
+html.dark .border-\[\#1E1A16\]\/12,
+html.theme-nocturne .border-\[\#1E1A16\]\/15,
+html.dark .border-\[\#1E1A16\]\/15,
+html.theme-nocturne .border-\[\#1E1A16\]\/20,
+html.dark .border-\[\#1E1A16\]\/20,
+html.theme-nocturne .border-\[\#1A1612\]\/20,
+html.dark .border-\[\#1A1612\]\/20 {
   border-color: rgba(237, 232, 223, 0.12) !important;
 }
 

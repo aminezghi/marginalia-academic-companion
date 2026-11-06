@@ -1381,7 +1381,9 @@ export default function App() {
       />
     )}
 
-    <div className="relative min-h-screen flex flex-col justify-between bg-[#EDE8DD] text-[#141414] paper-grain selection:bg-[#1F3FB0] selection:text-white">
+    <div className={`relative min-h-screen flex flex-col justify-between transition-colors duration-300 ${
+      isNightMode ? 'bg-[#121110] text-[#EDE8DF]' : 'bg-[#EDE8DD] text-[#141414]'
+    } paper-grain selection:bg-[#1F3FB0] selection:text-white`}>
       {/* Editorial Custom Cursor (desktop only) */}
       <CustomCursor
         isHoveringActive={cursorState.isHoveringActive}
@@ -1502,6 +1504,7 @@ export default function App() {
             <CategoryTabs
               categories={categories}
               activeCategory={activeCategory}
+              isNightMode={isNightMode}
               onSelectCategory={(cat) => {
                 setActiveCategory(cat);
                 if (cat === 'ALL') {
@@ -1592,6 +1595,7 @@ export default function App() {
                 item={activeShelfBook}
                 currentIndex={shelfIndex}
                 totalItems={filteredShelfBooks.length}
+                isNightMode={isNightMode}
                 onPrev={() => setShelfIndex((prev) => Math.max(0, prev - 1))}
                 onNext={() =>
                   setShelfIndex((prev) =>
@@ -1624,6 +1628,7 @@ export default function App() {
             <CategoryTabs
               categories={categories}
               activeCategory={activeCategory}
+              isNightMode={isNightMode}
               onSelectCategory={(cat) => {
                 setActiveCategory(cat);
               }}

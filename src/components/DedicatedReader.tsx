@@ -34,6 +34,7 @@ interface DedicatedReaderProps {
   onDeleteHighlight: (id: string) => void;
   onUpdateReadingProgress: (paperId: string, page: number, percent: number, totalPages: number) => void;
   onAttachPdf: (file: File) => Promise<void>;
+  isNightMode?: boolean;
 }
 
 const HIGHLIGHT_COLORS: { id: HighlightColor; label: string; hex: string; bgClass: string }[] = [
@@ -55,6 +56,7 @@ export const DedicatedReader: React.FC<DedicatedReaderProps> = ({
   onDeleteHighlight,
   onUpdateReadingProgress,
   onAttachPdf,
+  isNightMode = false,
 }) => {
   const [currentPage, setCurrentPage] = useState<number>(paper?.readingProgress.currentPage || 1);
   const [totalPages, setTotalPages] = useState<number>(0);
@@ -457,6 +459,7 @@ export const DedicatedReader: React.FC<DedicatedReaderProps> = ({
               onCurrentPageChange={handleCurrentPageChange}
               onTextSelection={handleTextSelection}
               onAttachPdf={onAttachPdf}
+              isNightMode={isNightMode}
             />
           ) : (
             <p role="status" className="absolute inset-0 grid place-items-center font-mono text-sm text-[#77736B]">

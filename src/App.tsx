@@ -33,7 +33,6 @@ import { DEFAULT_CATEGORY_APPEARANCES } from './data/bookAppearanceData';
 import { TopNav, MainViewMode } from './components/TopNav';
 import { CategoryTabs } from './components/CategoryTabs';
 import { ShelfArchive } from './components/ShelfArchive';
-import { BankersLampStyle } from './components/VintageBankersLamp';
 import { ResearchCaption } from './components/ResearchCaption';
 import { VintageSkeleton } from './components/VintageSkeleton';
 import { CommandPalette } from './components/CommandPalette';
@@ -173,18 +172,6 @@ export default function App() {
     if (typeof window === 'undefined') return false;
     return localStorage.getItem('marginalia_night_mode') === 'true';
   });
-
-  const [lampStyle, setLampStyle] = useState<BankersLampStyle>(() => {
-    if (typeof window === 'undefined') return 'emerald';
-    return (localStorage.getItem('marginalia_lamp_style') as BankersLampStyle) || 'emerald';
-  });
-
-  const handleUpdateLampStyle = useCallback((style: BankersLampStyle) => {
-    setLampStyle(style);
-    if (typeof window !== 'undefined') {
-      localStorage.setItem('marginalia_lamp_style', style);
-    }
-  }, []);
 
   useEffect(() => {
     if (isNightMode) {
@@ -1637,8 +1624,6 @@ export default function App() {
                 categoryAppearances={categoryAppearances}
                 isNightMode={isNightMode}
                 onToggleNightMode={toggleNightMode}
-                lampStyle={lampStyle}
-                onChangeLampStyle={handleUpdateLampStyle}
                 onCursorChange={setCursorState}
               />
 
@@ -1717,6 +1702,9 @@ export default function App() {
               papers={filteredShelfItems}
               collections={collections}
               categories={categories}
+              viewMode={catalogDisplayFormat}
+              onChangeViewMode={(mode) => setCatalogDisplayFormat(mode)}
+              isNightMode={isNightMode}
               onSelectPaper={(paper) => {
                 playSheetExpand();
                 setActiveDetailItem(paper);
@@ -1763,8 +1751,9 @@ export default function App() {
             )}
             onAddHighlight={handleAddHighlight}
             onDeleteHighlight={handleDeleteHighlight}
-        onUpdateReadingProgress={handleUpdateReadingProgress}
+            onUpdateReadingProgress={handleUpdateReadingProgress}
             onAttachPdf={handleAttachPdfToActivePaper}
+            isNightMode={isNightMode}
           />
         )}
 
@@ -1980,8 +1969,6 @@ export default function App() {
         initialSelectedBook={customizerTargetBook || activeShelfItem}
         shelfMaterial={shelfMaterial}
         onChangeShelfMaterial={setShelfMaterial}
-        lampStyle={lampStyle}
-        onChangeLampStyle={handleUpdateLampStyle}
         sortMode={shelfSortMode}
         onChangeSortMode={setShelfSortMode}
         categoryAppearances={categoryAppearances}

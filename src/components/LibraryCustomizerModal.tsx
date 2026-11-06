@@ -21,7 +21,6 @@ import {
   VINTAGE_SPINE_COLORS,
   resolveBookAppearance,
 } from '../data/bookAppearanceData';
-import { BANKER_LAMP_STYLES, BankersLampStyle } from './VintageBankersLamp';
 import { PhysicalSpine } from './PhysicalSpine';
 import { PhysicalCover } from './PhysicalCover';
 import { playTactileClick } from '../utils/sound';
@@ -45,8 +44,6 @@ interface LibraryCustomizerModalProps {
   initialSelectedBook?: ResearchItem | null;
   shelfMaterial: ShelfWoodMaterial;
   onChangeShelfMaterial: (material: ShelfWoodMaterial) => void;
-  lampStyle?: BankersLampStyle;
-  onChangeLampStyle?: (style: BankersLampStyle) => void;
   sortMode: ShelfSortMode;
   onChangeSortMode: (mode: ShelfSortMode) => void;
   categoryAppearances: Record<string, CollectionAppearance>;
@@ -69,8 +66,6 @@ export const LibraryCustomizerModal: React.FC<LibraryCustomizerModalProps> = ({
   initialSelectedBook,
   shelfMaterial,
   onChangeShelfMaterial,
-  lampStyle = 'emerald',
-  onChangeLampStyle,
   sortMode,
   onChangeSortMode,
   categoryAppearances,
@@ -637,54 +632,6 @@ export const LibraryCustomizerModal: React.FC<LibraryCustomizerModalProps> = ({
                           </div>
                           <p className="text-[11px] text-[#77736B] mt-1.5 leading-snug">
                             {wood.description}
-                          </p>
-                        </button>
-                      );
-                    })}
-                  </div>
-                </div>
-
-                {/* Vintage Banker's Desk Lamp Style Selector */}
-                <div className="bg-white/70 border border-[#141414]/15 p-4 space-y-3">
-                  <div className="flex items-center justify-between">
-                    <span className="text-[11px] font-mono uppercase tracking-wider text-[#77736B]">
-                      VINTAGE BANKER'S DESK LAMP & NOCTURNE SHADE
-                    </span>
-                    <span className="text-[10px] font-mono text-[#D4AF37]">
-                      Interactive Turnkey on Shelf
-                    </span>
-                  </div>
-                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
-                    {BANKER_LAMP_STYLES.map((lamp) => {
-                      const active = lampStyle === lamp.id;
-                      return (
-                        <button
-                          key={lamp.id}
-                          type="button"
-                          onClick={() => {
-                            playTactileClick();
-                            onChangeLampStyle?.(lamp.id);
-                          }}
-                          className={`p-3 border text-left transition-all cursor-pointer ${
-                            active
-                              ? 'border-[#D4AF37] bg-[#D4AF37]/10 shadow-xs ring-1 ring-[#D4AF37]'
-                              : 'border-[#141414]/15 hover:border-[#141414]/40 bg-[#F4F1EA]/70'
-                          }`}
-                        >
-                          <div className="flex items-center gap-2">
-                            <span
-                              className="w-4 h-4 rounded-full border border-black/30 shrink-0 shadow-xs"
-                              style={{ background: lamp.shadeColor }}
-                            />
-                            <span className="font-serif font-medium text-xs text-[#141414]">
-                              {lamp.name}
-                            </span>
-                            {active && (
-                              <Check className="w-3.5 h-3.5 text-[#D4AF37] ml-auto shrink-0" />
-                            )}
-                          </div>
-                          <p className="text-[10px] text-[#77736B] mt-1.5 leading-snug">
-                            {lamp.subtitle}
                           </p>
                         </button>
                       );

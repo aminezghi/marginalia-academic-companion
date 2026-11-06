@@ -22,7 +22,7 @@ import {
 } from '../data/bookAppearanceData';
 import { playPaperRustle, playTactileClick } from '../utils/sound';
 import { ChevronLeft, ChevronRight, Palette } from 'lucide-react';
-import { VintageBankersLamp, BankersLampStyle } from './VintageBankersLamp';
+import { VintageBankersLamp } from './VintageBankersLamp';
 
 interface ShelfArchiveProps {
   items: ResearchItem[];
@@ -35,8 +35,6 @@ interface ShelfArchiveProps {
   categoryAppearances?: Record<string, CollectionAppearance>;
   isNightMode?: boolean;
   onToggleNightMode?: () => void;
-  lampStyle?: BankersLampStyle;
-  onChangeLampStyle?: (style: BankersLampStyle) => void;
   onCursorChange?: (state: {
     isHoveringActive?: boolean;
     label?: string;
@@ -78,8 +76,6 @@ export const ShelfArchive: React.FC<ShelfArchiveProps> = ({
   categoryAppearances = DEFAULT_CATEGORY_APPEARANCES,
   isNightMode = false,
   onToggleNightMode,
-  lampStyle,
-  onChangeLampStyle,
   onCursorChange,
 }) => {
   const containerRef = useRef<HTMLDivElement>(null);
@@ -112,6 +108,9 @@ export const ShelfArchive: React.FC<ShelfArchiveProps> = ({
   // Refs for gesture tracking & active spring animations
   const activeAnimationRef = useRef<AnimationPlaybackControls | null>(null);
   const isDraggingRef = useRef<boolean>(false);
+  const isTouchRef = useRef<boolean>(false);
+  const dragStartXRef = useRef<number>(0);
+  const dragStartTimeRef = useRef<number>(0);
   const dragLastXRef = useRef<number>(0);
   const totalDragPixelsRef = useRef<number>(0);
   const pointerHistoryRef = useRef<PointerSample[]>([]);
@@ -240,7 +239,7 @@ export const ShelfArchive: React.FC<ShelfArchiveProps> = ({
 
   // Shared drag start / move / end logic for both Mouse (`window` listeners) and Touch
   const beginDragAt = useCallback(
-    (clientX: number) => {
+    (clientX: number, isTouch = false) => {
       activeAnimationRef.current?.stop();
       if (wheelSettleTimeoutRef.current) {
         window.clearTimeout(wheelSettleTimeoutRef.current);
@@ -248,6 +247,9 @@ export const ShelfArchive: React.FC<ShelfArchiveProps> = ({
       }
       const now = performance.now();
       isDraggingRef.current = true;
+      isTouchRef.current = isTouch;
+      dragStartXRef.current = clientX;
+      dragStartTimeRef.current = now;
       dragLastXRef.current = clientX;
       totalDragPixelsRef.current = 0;
       pointerHistoryRef.current = [{ x: clientX, time: now }];
@@ -260,9 +262,9 @@ export const ShelfArchive: React.FC<ShelfArchiveProps> = ({
       if (!isDraggingRef.current) return;
       const now = performance.now();
       const dx = clientX - dragLastXRef.current;
-      totalDragPixelsRef.current += Math.abs(dx);
+      totalDragPixelsRef.current = Math.abs(clientX - dragStartXRef.current);
 
-      if (totalDragPixelsRef.current > 4 && !isMouseDragging) {
+      if (totalDragPixelsRef.current > (isTouchRef.current ? 8 : 4) && !isMouseDragging) {
         setIsMouseDragging(true);
       }
 
@@ -308,16 +310,19 @@ export const ShelfArchive: React.FC<ShelfArchiveProps> = ({
       const now = performance.now();
       pointerHistoryRef.current.push({ x: clientX, time: now });
 
-      const gestureVel = computeGestureVelocity(now) * 1.2;
-      const motionVel = springVelocity.get();
-      const rawReleaseVel =
-        Math.abs(gestureVel) >= Math.abs(motionVel) ? gestureVel : motionVel;
-      const releaseVelocity = Math.max(-18, Math.min(18, rawReleaseVel));
+      const displacement = Math.abs(clientX - dragStartXRef.current);
+      const dragThreshold = isTouchRef.current ? 34 : 14;
 
-      const maxIdx = Math.max(0, items.length - 1);
-      const currentPos = springPosition.get();
+      if (displacement > dragThreshold) {
+        const gestureVel = computeGestureVelocity(now) * 1.2;
+        const motionVel = springVelocity.get();
+        const rawReleaseVel =
+          Math.abs(gestureVel) >= Math.abs(motionVel) ? gestureVel : motionVel;
+        const releaseVelocity = Math.max(-18, Math.min(18, rawReleaseVel));
 
-      if (totalDragPixelsRef.current > 14) {
+        const maxIdx = Math.max(0, items.length - 1);
+        const currentPos = springPosition.get();
+
         const projectedPos =
           currentPos + releaseVelocity * INERTIA_TIME_CONSTANT;
         const targetBook = Math.max(
@@ -350,7 +355,7 @@ export const ShelfArchive: React.FC<ShelfArchiveProps> = ({
     if ((e.target as HTMLElement).closest('[data-shelf-nav-btn="true"]')) {
       return;
     }
-    beginDragAt(e.clientX);
+    beginDragAt(e.clientX, false);
   };
 
   useEffect(() => {
@@ -370,13 +375,13 @@ export const ShelfArchive: React.FC<ShelfArchiveProps> = ({
     };
   }, [moveDragAt, finishDragAt]);
 
-  // Touch drag handlers for mobile/tablet
+  // Touch drag handlers for mobile/tablet with touch slop awareness
   const handleTouchStart = (e: React.TouchEvent<HTMLDivElement>) => {
     if ((e.target as HTMLElement).closest('[data-shelf-nav-btn="true"]')) {
       return;
     }
     if (e.touches.length > 0) {
-      beginDragAt(e.touches[0].clientX);
+      beginDragAt(e.touches[0].clientX, true);
     }
   };
 
@@ -541,6 +546,7 @@ export const ShelfArchive: React.FC<ShelfArchiveProps> = ({
   return (
     <div
       ref={containerRef}
+      style={{ touchAction: 'pan-y' }}
       className={`relative w-full h-[365px] sm:h-[420px] md:h-[460px] flex items-end justify-center select-none overflow-hidden shelf-perspective-container pb-7 sm:pb-9 md:pb-10 ${
         isMouseDragging ? 'cursor-grabbing' : 'cursor-grab'
       }`}
@@ -611,12 +617,10 @@ export const ShelfArchive: React.FC<ShelfArchiveProps> = ({
       </div>
 
       {/* RIGHT VINTAGE BANKER'S DESK LAMP SITTING ON WOODEN SHELF PLANK */}
-      <div className="absolute right-2 sm:right-6 md:right-10 bottom-7 sm:bottom-9 z-40">
+      <div className="absolute right-3 sm:right-6 md:right-8 bottom-[26px] sm:bottom-[34px] md:bottom-[38px] z-30 pointer-events-auto">
         <VintageBankersLamp
           isLit={isNightMode}
           onToggle={onToggleNightMode || (() => {})}
-          lampStyle={lampStyle}
-          onChangeLampStyle={onChangeLampStyle}
         />
       </div>
 
@@ -738,7 +742,20 @@ export const ShelfArchive: React.FC<ShelfArchiveProps> = ({
           const isHovered = hoveredIndex === index;
           const isPulledOut = isCenterActive && pulledOutBookId === item.id;
 
-          const translateX = centerX - cameraX;
+          const centerOffset = isMobile ? -14 : -26;
+          const translateX = centerX - cameraX + centerOffset;
+
+          // Banker's Lamp clearance: books must NEVER collide with or slide underneath the lamp
+          const bookScreenX = (viewportWidth / 2) + translateX;
+          const bookRightEdge = bookScreenX + (currentWidth / 2);
+          const lampZoneStart = viewportWidth - (isMobile ? 100 : 155);
+
+          let lampFade = 1;
+          if (bookRightEdge > lampZoneStart) {
+            const overlap = bookRightEdge - lampZoneStart;
+            lampFade = Math.max(0, 1 - overlap / 60);
+          }
+          if (lampFade <= 0.05) return null;
 
           // Pull forward realistically: extra Z & slight lift when clicked (`isPulledOut`)
           const baseActiveZ = isMobile ? 44 : 68;
@@ -776,6 +793,23 @@ export const ShelfArchive: React.FC<ShelfArchiveProps> = ({
 
           const itemPaperCount = item.bookPaperIds?.length || 1;
 
+          const handleBookSelect = () => {
+            playPaperRustle();
+            if (index !== nearestCenterIndex) {
+              // Direct choose: select clicked book, pull out, and smoothly glide shelf to center it
+              onSelectIndex(index);
+              setPulledOutBookId(item.id);
+              animateShelfToBook(index);
+            } else {
+              // Focused center book
+              if (pulledOutBookId === item.id) {
+                (onReadPaper || onOpenDetail)(item);
+              } else {
+                setPulledOutBookId(item.id);
+              }
+            }
+          };
+
           return (
             <motion.div
               key={item.id}
@@ -787,33 +821,23 @@ export const ShelfArchive: React.FC<ShelfArchiveProps> = ({
                 zIndex,
                 transformOrigin: '50% 100%',
                 willChange: 'transform, width, height',
+                opacity: lampFade,
+                pointerEvents: lampFade < 0.25 ? 'none' : 'auto',
                 filter: isNightMode
                   ? 'drop-shadow(-8px 10px 16px rgba(0,0,0,0.85)) drop-shadow(-2px 4px 6px rgba(0,0,0,0.55))'
                   : undefined,
               }}
               onClick={(e) => {
                 e.stopPropagation();
-                // Ignore if user made an intentional dragging motion on the shelf
-                if (totalDragPixelsRef.current > 16) return;
-                playPaperRustle();
-
-                // When the center book is already pulled out and being inspected,
-                // clicking it should start reading (if onReadPaper is provided) or open detail
-                if (isCenterActive && pulledOutBookId === item.id) {
-                  (onReadPaper || onOpenDetail)(item);
-                  return;
-                }
-
-                if (isCenterActive) {
-                  // Toggle realistic pulled-out inspection state with Start Reading / Dossier controls
-                  setPulledOutBookId((prev) =>
-                    prev === item.id ? null : item.id
-                  );
-                } else {
-                  // Direct selection: instantly report to parent, pull forward and smoothly glide shelf
-                  onSelectIndex(index);
-                  setPulledOutBookId(item.id);
-                  animateShelfToBook(index);
+                const dragThreshold = isTouchRef.current ? 32 : 14;
+                if (totalDragPixelsRef.current > dragThreshold) return;
+                handleBookSelect();
+              }}
+              onTouchEnd={(e) => {
+                const dragThreshold = 32;
+                if (totalDragPixelsRef.current <= dragThreshold) {
+                  e.stopPropagation();
+                  handleBookSelect();
                 }
               }}
               onDoubleClick={(e) => {
@@ -850,25 +874,7 @@ export const ShelfArchive: React.FC<ShelfArchiveProps> = ({
               onKeyDown={(e) => {
                 if (e.key === 'Enter' || e.key === ' ') {
                   e.preventDefault();
-                  
-                  // When the center book is already pulled out and being inspected,
-                  // pressing Enter/Space should start reading
-                  if (isCenterActive && pulledOutBookId === item.id) {
-                    (onReadPaper || onOpenDetail)(item);
-                    return;
-                  }
-
-                  if (isCenterActive) {
-                    // Toggle realistic pulled-out inspection state
-                    setPulledOutBookId((prev) =>
-                      prev === item.id ? null : item.id
-                    );
-                  } else {
-                    // Select clicked book, pull forward and smoothly glide shelf
-                    onSelectIndex(index);
-                    setPulledOutBookId(item.id);
-                    animateShelfToBook(index);
-                  }
+                  handleBookSelect();
                 }
               }}
             >

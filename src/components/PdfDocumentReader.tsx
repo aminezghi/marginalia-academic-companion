@@ -20,6 +20,7 @@ export interface PdfDocumentReaderProps {
   onCurrentPageChange: (page: number) => void;
   onTextSelection: () => void;
   onAttachPdf: (file: File) => Promise<void>;
+  isNightMode?: boolean;
 }
 
 export function PdfDocumentReader({
@@ -30,7 +31,9 @@ export function PdfDocumentReader({
   onCurrentPageChange,
   onTextSelection,
   onAttachPdf,
+  isNightMode: propNightMode,
 }: PdfDocumentReaderProps) {
+  const isNight = propNightMode ?? (typeof document !== 'undefined' && document.documentElement.classList.contains('theme-nocturne'));
   const scrollRootRef = useRef<HTMLDivElement>(null);
   const pageElementsRef = useRef(new Map<number, HTMLDivElement>());
   const [pdfBytes, setPdfBytes] = useState<Uint8Array | null>(null);
@@ -147,33 +150,101 @@ export function PdfDocumentReader({
     <div
       ref={scrollRootRef}
       onMouseUp={onTextSelection}
-      className="absolute inset-0 min-h-0 overflow-auto px-4 py-6 md:px-8 md:py-10 bg-[#EDEBE6] paper-grain"
+      className={`absolute inset-0 min-h-0 overflow-auto px-4 py-6 md:px-8 md:py-10 paper-grain transition-colors ${
+        isNight ? 'bg-[#121110] text-[#EDE8DF]' : 'bg-[#EDEBE6] text-[#141414]'
+      }`}
       aria-label="PDF pages"
     >
       {error && (
-        <div role="alert" className="mx-auto max-w-2xl border border-rose-300 bg-rose-50 p-5 text-sm text-rose-900">
-          <strong className="block font-mono uppercase tracking-wide">PDF unavailable</strong>
-          <span className="block">{error}</span>
-          <button
-            type="button"
-            onClick={() => fileInputRef.current?.click()}
-            disabled={isAttaching}
-            className="mt-4 border border-rose-900/40 bg-white px-3 py-2 font-mono text-xs uppercase tracking-wide hover:bg-rose-100 disabled:opacity-60"
+        <div
+          role="alert"
+          className={`mx-auto max-w-2xl border p-6 text-sm shadow-xl transition-colors ${
+            isNight
+              ? 'bg-[#1A1815] border-[#2E2822] text-[#EDE8DF]'
+              : 'bg-[#F9F7F2] border-[#141414]/15 text-[#141414]'
+          }`}
+        >
+          <div className="flex items-center gap-2">
+            <span
+              className={`w-2 h-2 rounded-full ${
+                isNight ? 'bg-[#D4AF37]' : 'bg-[#1F3FB0]'
+              }`}
+            />
+            <strong
+              className={`font-mono text-xs uppercase tracking-wider ${
+                isNight ? 'text-[#D4AF37]' : 'text-[#1F3FB0]'
+              }`}
+            >
+              PDF Document Unavailable
+            </strong>
+          </div>
+          <p
+            className={`mt-2 font-mono text-xs leading-relaxed ${
+              isNight ? 'text-[#9E9689]' : 'text-[#77736B]'
+            }`}
           >
-            {isAttaching ? 'Attaching PDF…' : paper.storagePath || paper.guestPdfId ? 'Choose another PDF' : 'Attach PDF'}
-          </button>
-          {attachError && <span className="mt-2 block text-rose-800">{attachError}</span>}
-          {(paper.abstract || sourceUrl) && (
-            <section className="mt-5 border-t border-rose-200 pt-4 text-left">
-              <h2 className="font-serif text-lg font-semibold text-[#141414]">Abstract</h2>
-              {paper.abstract && <p className="mt-2 whitespace-pre-wrap font-serif text-sm leading-relaxed text-[#35302B]">{paper.abstract}</p>}
-              {sourceUrl && (
-                <a href={sourceUrl} target="_blank" rel="noopener noreferrer" className="mt-4 inline-flex items-center border border-[#141414]/25 bg-white px-3 py-2 font-mono text-xs uppercase text-[#1F3FB0] hover:border-[#1F3FB0]">
-                  Open article / download source
-                </a>
-              )}
+            This paper record has no local PDF attached yet. You can attach a local PDF file or open the original publication directly via DOI / Open Access web repository.
+          </p>
+
+          <div className="mt-4 flex flex-wrap items-center gap-2.5">
+            <button
+              type="button"
+              onClick={() => fileInputRef.current?.click()}
+              disabled={isAttaching}
+              className={`px-4 py-2 font-mono text-xs uppercase tracking-wide transition-colors cursor-pointer disabled:opacity-60 border ${
+                isNight
+                  ? 'bg-[#25201A] border-[#3E362C] text-[#EDE8DF] hover:border-[#D4AF37] hover:text-[#D4AF37]'
+                  : 'bg-[#141414] border-[#141414] text-white hover:bg-[#1F3FB0]'
+              }`}
+            >
+              {isAttaching ? 'Attaching PDF…' : paper.storagePath || paper.guestPdfId ? 'Choose another PDF' : 'Attach Local PDF'}
+            </button>
+
+            {sourceUrl && (
+              <a
+                href={sourceUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className={`inline-flex items-center px-4 py-2 font-mono text-xs uppercase transition-colors cursor-pointer border ${
+                  isNight
+                    ? 'border-[#D4AF37]/40 bg-[#D4AF37]/10 text-[#D4AF37] hover:bg-[#D4AF37]/20 hover:border-[#D4AF37]'
+                    : 'border-[#1F3FB0]/30 bg-[#1F3FB0]/5 text-[#1F3FB0] hover:bg-[#1F3FB0]/15'
+                }`}
+              >
+                Read Open Access via DOI / Web ↗
+              </a>
+            )}
+          </div>
+
+          {attachError && (
+            <span className="mt-2.5 block font-mono text-xs text-rose-500">
+              {attachError}
+            </span>
+          )}
+
+          {paper.abstract && (
+            <section
+              className={`mt-6 pt-5 border-t text-left ${
+                isNight ? 'border-[#2E2822]' : 'border-[#141414]/15'
+              }`}
+            >
+              <h2
+                className={`font-serif text-lg font-medium tracking-tight ${
+                  isNight ? 'text-[#EDE8DF]' : 'text-[#141414]'
+                }`}
+              >
+                Synthesized Abstract
+              </h2>
+              <p
+                className={`mt-2 whitespace-pre-wrap font-serif text-sm leading-relaxed ${
+                  isNight ? 'text-[#C0B7A8]' : 'text-[#35302B]'
+                }`}
+              >
+                {paper.abstract}
+              </p>
             </section>
           )}
+
           <input
             ref={fileInputRef}
             type="file"

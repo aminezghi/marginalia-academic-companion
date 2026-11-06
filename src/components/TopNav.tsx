@@ -159,10 +159,15 @@ export const TopNav: React.FC<TopNavProps> = ({
       <div className="max-w-7xl 2xl:max-w-[1800px] mx-auto px-3 sm:px-6 lg:px-8 py-3 flex items-center justify-between gap-2 sm:gap-4">
         {/* LEFT: Marginalia Brand Identity */}
         <div
-          className="flex items-center gap-3 sm:gap-3.5 cursor-pointer shrink-0 group"
+          className="flex items-center gap-2.5 sm:gap-3 cursor-pointer shrink-0 group"
           onClick={() => handleSelectView('shelf')}
         >
-          <span className="font-serif text-2xl sm:text-[28px] font-normal tracking-[-0.02em] text-[#1A1612] leading-none group-hover:text-[#1F3FB0] transition-colors">
+          <img
+            src="/favicon.svg"
+            alt="Marginalia Bookshelf Archive"
+            className="w-7 h-7 sm:w-8 sm:h-8 object-contain shrink-0 group-hover:scale-105 transition-transform"
+          />
+          <span className="font-serif text-2xl sm:text-[28px] font-normal tracking-[-0.02em] text-[#1A1612] leading-none group-hover:text-[#742421] transition-colors">
             Marginalia
           </span>
           <span

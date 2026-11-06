@@ -1,0 +1,36 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 960 256" width="960" height="256" role="img" aria-labelledby="title-lockup">
+  <title id="title-lockup">Marginalia Academic Companion</title>
+  <!-- Mark Symbol (Group with transform) -->
+  <g id="symbol" transform="translate(24, 0)">
+    <!-- Wooden Shelf Base in Dark Walnut -->
+    <path fill="#2C1B0E" d="M 28 202 H 228 V 216 H 28 Z M 24 216 H 232 V 222 H 24 Z"/>
+    <!-- Volume 1 -->
+    <rect x="38" y="44" width="30" height="158" rx="2" fill="#742421"/>
+    <rect x="38" y="68" width="30" height="4" fill="#D4AF37"/>
+    <rect x="38" y="174" width="30" height="4" fill="#D4AF37"/>
+    <path fill="#D4AF37" d="M 49 40 H 55 V 126 L 52 120 L 49 126 Z"/>
+    <!-- Volume 2 -->
+    <rect x="74" y="54" width="38" height="148" rx="2" fill="#742421"/>
+    <rect x="80" y="86" width="26" height="40" rx="1" fill="#D4AF37"/>
+    <rect x="83" y="89" width="20" height="34" rx="1" fill="#742421"/>
+    <rect x="74" y="160" width="38" height="4" fill="#D4AF37"/>
+    <!-- Volume 3 -->
+    <rect x="118" y="48" width="32" height="154" rx="2" fill="#742421"/>
+    <rect x="118" y="74" width="32" height="4" fill="#D4AF37"/>
+    <rect x="118" y="122" width="32" height="4" fill="#D4AF37"/>
+    <rect x="118" y="170" width="32" height="4" fill="#D4AF37"/>
+    <!-- Volume 4 -->
+    <rect x="156" y="66" width="28" height="136" rx="2" fill="#742421"/>
+    <rect x="156" y="90" width="28" height="4" fill="#D4AF37"/>
+    <rect x="156" y="152" width="28" height="4" fill="#D4AF37"/>
+    <!-- Bookend -->
+    <path fill="#D4AF37" d="M 194 116 H 214 V 202 H 188 V 192 H 204 V 126 H 194 Z"/>
+  </g>
+  <!-- Wordmark Section -->
+  <g id="wordmark" transform="translate(290, 0)">
+    <!-- Primary Title: Marginalia -->
+    <text x="0" y="132" font-family="'Newsreader', Georgia, 'Times New Roman', serif" font-size="82" font-weight="500" letter-spacing="-1.5" fill="#1A1612">Marginalia</text>
+    <!-- Subtitle: Academic Knowledge Companion -->
+    <text x="4" y="176" font-family="'Inter Tight', -apple-system, sans-serif" font-size="20" font-weight="600" letter-spacing="3" text-transform="uppercase" fill="#742421">Academic Knowledge Companion</text>
+  </g>
+</svg>

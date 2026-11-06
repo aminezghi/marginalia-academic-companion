@@ -1,0 +1,32 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" width="256" height="256"><title>Marginalia</title><g transform="translate(-4.35 -7.45) scale(1.034)">
+  <title id="title-mark">Marginalia — The Bookshelf Archive</title>
+  <!-- Wooden Shelf Base in Dark Walnut -->
+  <path fill="#2C1B0E" d="M 28 202 H 228 V 216 H 28 Z M 24 216 H 232 V 222 H 24 Z"/>
+
+  <!-- Volume 1 (Tall Left Folio in Burgundy Leather) -->
+  <rect x="38" y="44" width="30" height="158" rx="2" fill="#742421"/>
+  <rect x="38" y="68" width="30" height="4" fill="#D4AF37"/>
+  <rect x="38" y="174" width="30" height="4" fill="#D4AF37"/>
+  <!-- Draped Gilded Bookmark on Volume 1 -->
+  <path fill="#D4AF37" d="M 49 40 H 55 V 126 L 52 120 L 49 126 Z"/>
+
+  <!-- Volume 2 (Broad Central Tome with Gold Foil Title Cartouche) -->
+  <rect x="74" y="54" width="38" height="148" rx="2" fill="#742421"/>
+  <rect x="80" y="86" width="26" height="40" rx="1" fill="#D4AF37"/>
+  <rect x="83" y="89" width="20" height="34" rx="1" fill="#742421"/>
+  <rect x="74" y="160" width="38" height="4" fill="#D4AF37"/>
+
+  <!-- Volume 3 (Medium Academic Reference Tome) -->
+  <rect x="118" y="48" width="32" height="154" rx="2" fill="#742421"/>
+  <rect x="118" y="74" width="32" height="4" fill="#D4AF37"/>
+  <rect x="118" y="122" width="32" height="4" fill="#D4AF37"/>
+  <rect x="118" y="170" width="32" height="4" fill="#D4AF37"/>
+
+  <!-- Volume 4 (Compact Archival Volume) -->
+  <rect x="156" y="66" width="28" height="136" rx="2" fill="#742421"/>
+  <rect x="156" y="90" width="28" height="4" fill="#D4AF37"/>
+  <rect x="156" y="152" width="28" height="4" fill="#D4AF37"/>
+
+  <!-- Ornamental Brass Bookend / Marginal Bracket Glyph on Far Right -->
+  <path fill="#D4AF37" d="M 194 116 H 214 V 202 H 188 V 192 H 204 V 126 H 194 Z"/>
+</g></svg>

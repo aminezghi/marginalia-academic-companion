@@ -195,10 +195,10 @@ export interface VisualMaterialData {
     | 'literature-map'
     | 'digital-flow'
     | 'nudging-experiment'
-    | 'creda-roadmap'
-    | 'gi-map'
-    | 'gi-database'
-    | 'biovalue-matrix'
+    | 'consortium-roadmap'
+    | 'spatial-map'
+    | 'database-schema'
+    | 'ecosystem-matrix'
     | 'eye-tracking-sim'
     | string;
   title: string;

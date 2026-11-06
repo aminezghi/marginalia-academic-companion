@@ -19,10 +19,10 @@ const MOTIF_OPTIONS = [
   { id: 'bibliometric-network', label: 'Bibliometric Network (Nodes & Clusters)' },
   { id: 'digital-interaction', label: 'Digital Choice Flow (Screen & Heuristics)' },
   { id: 'nudging-matrix', label: '2×2 Factorial Matrix (Nudging & Control)' },
-  { id: 'creda-consortium', label: 'Agri-Food Intersection (Consortium Rings)' },
-  { id: 'gi-smart-map', label: 'Terroir & GI Contour (Geographical Map)' },
-  { id: 'gi-database-schema', label: 'Relational Schema (Data Pipeline & SQL)' },
-  { id: 'biovalue-agro', label: 'Agro-Biodiversity Cycle (Botanical Rings)' },
+  { id: 'consortium-rings', label: 'Collaborative Research Network (Consortium Rings)' },
+  { id: 'gi-smart-map', label: 'Terroir & Spatial Distribution (Geographical Map)' },
+  { id: 'database-schema', label: 'Relational Schema (Data Pipeline & SQL)' },
+  { id: 'botanical-cycle', label: 'Agro-Biodiversity & Ecology (Botanical Rings)' },
   { id: 'eye-tracking-gaze', label: '120Hz Eye-Tracking Gaze (Saccades & Heat)' },
 ] as const;
 

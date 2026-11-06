@@ -62,6 +62,7 @@ const AuthModal = React.lazy(() => import('./components/AuthModal').then((m) => 
 const AccountSettingsModal = React.lazy(() => import('./components/AccountSettingsModal').then((m) => ({ default: m.AccountSettingsModal })));
 const ApiKeyPrompt = React.lazy(() => import('./components/ApiKeyPrompt').then((m) => ({ default: m.ApiKeyPrompt })));
 const Onboarding = React.lazy(() => import('./components/Onboarding').then((m) => ({ default: m.Onboarding })));
+const TopicSampleModal = React.lazy(() => import('./components/TopicSampleModal').then((m) => ({ default: m.TopicSampleModal })));
 
 import {
   toggleSound,
@@ -81,6 +82,7 @@ import {
   Upload,
   Layers,
   LayoutGrid,
+  Sparkles,
 } from 'lucide-react';
 
 const INITIAL_CATEGORIES: CategoryDefinition[] = [
@@ -92,37 +94,8 @@ const INITIAL_CATEGORIES: CategoryDefinition[] = [
   { id: 'REVIEW', label: 'LITERATURE REVIEWS', shortLabel: 'Reviews' },
 ];
 
-// Arrange the default shelf order so the active centerpiece book ('item-01') sits right in the middle
-// flanked by left and right vintage volumes just like the reference artwork
-const DEFAULT_SHELF_ID_ORDER = [
-  'item-v01', // Sustainable Diets (REV 2019)
-  'item-v02', // Consumer Choice (EMP 2020)
-  'item-v03', // Food Environments (REV 2021)
-  'item-v04', // Nudging & Behaviour (EXP 2022)
-  'item-06',  // Big Data in Food (REV 2022/2025)
-  'item-08',  // VR & Eye Tracking (EMP 2023/2026)
-  'item-05',  // Geographical Indications (PROJ 2023/2024)
-  'item-01',  // Mapping Consumer Trends for Healthy and Sustainable Food Choices (Active Centerpiece 2026)
-  'item-02',  // Digital Food Interactions (REV 2026)
-  'item-03',  // Social Supermarkets (EXP 2024/2025)
-  'item-04',  // CREDA Project (PROJ ONGO)
-  'item-07',  // BIOVALUE (PROJ 2021/2023)
-];
-
 function buildInitialOrderedItems(): ResearchItem[] {
-  const byId = new Map(INITIAL_RESEARCH_ITEMS.map((item) => [item.id, item]));
-  const ordered: ResearchItem[] = [];
-  for (const id of DEFAULT_SHELF_ID_ORDER) {
-    const found = byId.get(id);
-    if (found) {
-      ordered.push(found);
-      byId.delete(id);
-    }
-  }
-  for (const remaining of byId.values()) {
-    ordered.push(remaining);
-  }
-  return ordered;
+  return INITIAL_RESEARCH_ITEMS;
 }
 
 function isIndividualResearchPaper(item: ResearchItem): boolean {
@@ -1223,18 +1196,29 @@ export default function App() {
     setShelfIndex(0);
   }, [clearUserContent, user]);
 
-  const handleLoadSampleLibrary = useCallback(() => {
-    playPaperRustle();
-    const defaults = buildInitialOrderedItems();
-    setResearchItems(defaults);
-    setCollections(INITIAL_COLLECTIONS);
-    setNotes(INITIAL_NOTES);
-    setHighlights(INITIAL_HIGHLIGHTS);
-    setReadingSessions(INITIAL_READING_SESSIONS);
-    setGoals(INITIAL_GOALS);
-    setActivities(INITIAL_ACTIVITY_LOGS);
-    logActivity('imported', 'Loaded demonstration sample library (12 volumes)');
-  }, [logActivity]);
+  const [isTopicModalOpen, setIsTopicModalOpen] = useState(false);
+
+  const handleLoadTopicPapers = useCallback(
+    (newPapers: ResearchItem[], newCollection: ResearchCollection) => {
+      playPaperRustle();
+      setResearchItems((prev) => {
+        const existingIds = new Set(prev.map((p) => p.id));
+        const toAdd = newPapers.filter((p) => !existingIds.has(p.id));
+        return [...prev, ...toAdd];
+      });
+      setCollections((prev) => {
+        if (prev.some((c) => c.id === newCollection.id)) return prev;
+        return [...prev, newCollection];
+      });
+      setShelfIndex(0);
+      setActiveCategory('ALL');
+      logActivity(
+        'imported',
+        `Harvested ${newPapers.length} open-access volumes for "${newCollection.name}"`
+      );
+    },
+    [logActivity]
+  );
 
   // Global Keyboard Navigation on Bookshelf
   useEffect(() => {
@@ -1258,7 +1242,9 @@ export default function App() {
         isCategoryManagerOpen ||
         isCompanionToolsOpen ||
         isImportModalOpen ||
-        isCustomizerOpen;
+        isCustomizerOpen ||
+        isTopicModalOpen ||
+        isCommandPaletteOpen;
 
       if (e.key === 'ArrowLeft' && !anyModalOpen) {
         e.preventDefault();
@@ -1406,6 +1392,10 @@ export default function App() {
           playTactileClick();
           setIsImportModalOpen(true);
         }}
+        onOpenTopicSamples={() => {
+          playTactileClick();
+          setIsTopicModalOpen(true);
+        }}
         onOpenCustomizer={() => {
           playTactileClick();
           setIsCustomizerOpen(true);
@@ -1540,8 +1530,9 @@ export default function App() {
                     <button type="button" onClick={() => setIsImportModalOpen(true)} className="bg-[#141414] px-4 py-2 font-mono text-xs uppercase text-white hover:bg-[#1F3FB0] transition-colors cursor-pointer">
                       Add Papers
                     </button>
-                    <button type="button" onClick={handleLoadSampleLibrary} className="border border-[#141414]/25 bg-white px-4 py-2 font-mono text-xs uppercase text-[#141414] hover:border-[#1F3FB0] hover:text-[#1F3FB0] transition-colors cursor-pointer">
-                      Load Sample Demo (12 Papers)
+                    <button type="button" onClick={() => setIsTopicModalOpen(true)} className="border border-[#141414]/25 bg-white px-4 py-2 font-mono text-xs uppercase text-[#141414] hover:border-[#1F3FB0] hover:text-[#1F3FB0] transition-colors cursor-pointer flex items-center gap-1.5">
+                      <Sparkles className="w-3.5 h-3.5 text-[#1F3FB0]" />
+                      <span>Explore Topic Samples (Open Access)</span>
                     </button>
                     {researchItems.length > 0 && <button type="button" onClick={() => setActiveCategory('ALL')} className="border border-[#141414]/25 bg-white px-4 py-2 font-mono text-xs uppercase">Show all papers</button>}
                   </div>
@@ -1920,6 +1911,13 @@ export default function App() {
         categories={categories}
         collections={collections}
         defaultCollectionIds={importCollectionIds}
+      />
+
+      {/* 1.1 Open-Access Dynamic Topic Harvesting Modal */}
+      <TopicSampleModal
+        isOpen={isTopicModalOpen}
+        onClose={() => setIsTopicModalOpen(false)}
+        onLoadPapers={handleLoadTopicPapers}
       />
 
       {/* 2. Immersive Paper-like Detail Sheet Modal with Scroll Progress Bar */}

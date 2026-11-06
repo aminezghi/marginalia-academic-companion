@@ -392,31 +392,13 @@ const ITEM_VINTAGE_DEFAULTS: Record<
     bookSize: 'standard',
   },
   'item-03': {
-    spineTitle: 'SOCIAL SUPERMARKETS',
+    spineTitle: 'FIELD EXPERIMENT',
     typeCode: 'EXP',
-    spineEmblem: 'cart',
+    spineEmblem: 'chart',
     spineColor: '#7A2622',
     coverStyle: 'cloth',
     material: 'cloth',
     bookSize: 'standard',
-  },
-  'item-04': {
-    spineTitle: 'CREDA PROJECT',
-    typeCode: 'PROJ',
-    spineEmblem: 'sprout',
-    spineColor: '#CEBE9E',
-    coverStyle: 'archival',
-    material: 'aged_paper',
-    bookSize: 'slim',
-  },
-  'item-07': {
-    spineTitle: 'BIOVALUE',
-    typeCode: 'PROJ',
-    spineEmblem: 'olive',
-    spineColor: '#1E364E',
-    coverStyle: 'botanical',
-    material: 'leather',
-    bookSize: 'thick',
   },
 };
 
@@ -449,7 +431,7 @@ export function deriveSpineEmblem(item: ResearchItem, index: number): SpineEmble
   if (title.includes('eye') || title.includes('virtual reality') || cat.includes('IMMERSIVE')) return 'eye';
   if (title.includes('supermarket') || title.includes('nudg')) return 'cart';
   if (title.includes('geographical') || title.includes('terroir')) return 'terroir';
-  if (title.includes('biovalue') || cat.includes('BIODIVERSITY')) return 'olive';
+  if (cat.includes('BIODIVERSITY') || title.includes('biodiversity') || title.includes('ecology')) return 'olive';
   if (title.includes('digital')) return 'vr';
   if (cat.includes('BIG DATA')) return 'chart';
   if (cat.includes('FOOD SYSTEMS')) return 'wheat';

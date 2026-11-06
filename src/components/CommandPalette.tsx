@@ -27,6 +27,7 @@ interface CommandPaletteProps {
   onOpenReader: (paper: ResearchItem) => void;
   onNavigateView: (mode: MainViewMode | 'shelf' | 'catalog') => void;
   onOpenImport: () => void;
+  onOpenTopicSamples?: () => void;
   onOpenCustomizer: () => void;
   onExportBibtex: () => void;
   onExportObsidian: () => void;
@@ -52,6 +53,7 @@ export const CommandPalette: React.FC<CommandPaletteProps> = ({
   onOpenReader,
   onNavigateView,
   onOpenImport,
+  onOpenTopicSamples,
   onOpenCustomizer,
   onExportBibtex,
   onExportObsidian,
@@ -85,6 +87,18 @@ export const CommandPalette: React.FC<CommandPaletteProps> = ({
         badge: 'DOI',
         perform: () => {
           onOpenImport();
+          onClose();
+        },
+      },
+      {
+        id: 'action-explore-topics',
+        category: 'Actions',
+        title: 'Explore & Harvest Open-Access Research by Topic',
+        subtitle: 'Harvest peer-reviewed papers from OpenAlex (AI, Quantum, Genomics, Climate...)',
+        icon: Sparkles,
+        badge: 'Open Science',
+        perform: () => {
+          onOpenTopicSamples?.();
           onClose();
         },
       },

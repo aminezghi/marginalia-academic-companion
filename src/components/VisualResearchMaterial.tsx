@@ -278,28 +278,7 @@ export const VisualResearchMaterial: React.FC<VisualResearchMaterialProps> = ({ 
           </div>
         )}
 
-        {/* ITEM 04: CREDA Research Roadmap */}
-        {item.id === 'item-04' && (
-          <div className="flex flex-col gap-3 font-mono text-xs">
-            <span className="text-[#77736B]">CREDA COLLABORATION WORK PACKAGES:</span>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-2.5">
-              <div className="p-3 bg-white border border-[#141414]/15">
-                <div className="text-[#1F3FB0] font-semibold text-[11px]">WP1: DISCRETE CHOICE EXPERIMENTS</div>
-                <p className="text-[#141414] mt-1 text-[11px] leading-relaxed">
-                  Field surveys across Spain and Italy evaluating consumer willingness to pay (WTP) for regenerative vs conventional certifications.
-                </p>
-                <div className="mt-2 text-[10px] text-[#77736B]">Status: Active data collection</div>
-              </div>
-              <div className="p-3 bg-white border border-[#141414]/15">
-                <div className="text-[#1F3FB0] font-semibold text-[11px]">WP2: SCANNER DATA LINKAGE</div>
-                <p className="text-[#141414] mt-1 text-[11px] leading-relaxed">
-                  Cross-validating hypothetical stated preference models with real supermarket scanner transaction feeds.
-                </p>
-                <div className="mt-2 text-[10px] text-[#77736B]">Status: Model specification</div>
-              </div>
-            </div>
-          </div>
-        )}
+
 
         {/* ITEM 05: GI SMART Map & Value Chain */}
         {item.id === 'item-05' && (
@@ -398,38 +377,7 @@ export const VisualResearchMaterial: React.FC<VisualResearchMaterialProps> = ({ 
           </div>
         )}
 
-        {/* ITEM 07: BIOVALUE Agrobiodiversity Matrix */}
-        {item.id === 'item-07' && (
-          <div className="flex flex-col gap-3 font-mono text-xs">
-            <span className="text-[#77736B]">NEGLECTED & UNDERUTILIZED CROP EVALUATION:</span>
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
-              {[
-                { id: 'buckwheat', name: 'Buckwheat', trait: 'High protein, drought-hardy', rating: '88% Sensory' },
-                { id: 'grasspea', name: 'Grass Pea', trait: 'Nitrogen-fixing, marginal soil', rating: '74% Sensory' },
-                { id: 'einkorn', name: 'Einkorn Wheat', trait: 'Ancestral grain, low gluten index', rating: '92% Sensory' },
-                { id: 'lentil', name: 'Lentil Landrace', trait: 'Water-efficient, rich minerals', rating: '85% Sensory' },
-              ].map((c) => (
-                <button
-                  key={c.id}
-                  onClick={() => setActiveCrop(c.id)}
-                  className={`p-2.5 text-left border transition-all ${
-                    activeCrop === c.id
-                      ? 'bg-white border-[#536B52] shadow-sm'
-                      : 'bg-white/60 border-[#141414]/15 hover:bg-white'
-                  }`}
-                >
-                  <div className="font-semibold text-[#141414]">{c.name}</div>
-                  <div className="text-[10px] text-[#77736B] mt-1">{c.trait}</div>
-                  <div className="text-[10px] text-[#536B52] font-semibold mt-1">{c.rating}</div>
-                </button>
-              ))}
-            </div>
-            <div className="bg-white p-3 border border-[#141414]/15 text-xs text-[#141414]">
-              <span className="text-[#536B52] font-semibold">CIHEAM MAICh INSIGHT: </span>
-              Underutilized Mediterranean crops demonstrate remarkable climatic resilience in low-input farming. The primary barrier is not consumer palate, but decentralized processing infrastructure for dehulling and milling.
-            </div>
-          </div>
-        )}
+
 
         {/* ITEM 08: VR Eye-Tracking Supermarket Simulation */}
         {item.id === 'item-08' && (

@@ -1,12 +1,10 @@
 # Dependencies
 node_modules/
-deploy/node_modules/
 desktop/node_modules/
 
 # Production builds & artifacts
 dist/
 build/
-deploy/dist/
 desktop/build-runtime/
 desktop/dist/
 artifacts/
@@ -34,6 +32,10 @@ Thumbs.db
 # Vercel & Firebase cache
 .vercel/
 .firebase/
+
+# Agent local state
+.agents/
+skills-lock.json
 
 # Backup and scratch files
 *.bak

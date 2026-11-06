@@ -60,14 +60,23 @@ export const DedicatedImportModal: React.FC<DedicatedImportModalProps> = ({
 
   React.useEffect(() => {
     if (!isOpen) return;
-    const book = collections.find((collection) => defaultCollectionIds.includes(collection.id) && collection.kind !== 'area');
-    setDestinationBookId(book?.id || '');
-    setDestinationAreaId(book?.parentId || (book ? '__root__' : ''));
-    setCreateNewArea(false);
-    setCreateNewBook(false);
+    const availableBooks = collections.filter((collection) => !collection.isSmart && collection.kind !== 'area');
+    const book = availableBooks.find((collection) => defaultCollectionIds.includes(collection.id));
+    if (availableBooks.length === 0) {
+      setDestinationAreaId('__root__');
+      setDestinationBookId('');
+      setCreateNewArea(false);
+      setCreateNewBook(true);
+      setNewBookName('Primary Research');
+    } else {
+      setDestinationBookId(book?.id || availableBooks[0]?.id || '');
+      setDestinationAreaId(book?.parentId || (book || availableBooks[0] ? '__root__' : ''));
+      setCreateNewArea(false);
+      setCreateNewBook(false);
+      setNewBookName('');
+    }
     setNewAreaName('');
-    setNewBookName('');
-  }, [isOpen, defaultCollectionKey]);
+  }, [isOpen, defaultCollectionKey, collections]);
 
   const books = collections.filter((collection) => !collection.isSmart && collection.kind !== 'area');
   const areas = collections.filter((collection) => collection.kind === 'area');

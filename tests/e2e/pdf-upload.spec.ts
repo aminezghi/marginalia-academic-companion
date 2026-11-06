@@ -56,7 +56,8 @@ async function importPdf(page: Page, name: string, pageCount: number, includeRas
   });
   await expect(page.getByRole('status').filter({ hasText: `PDF ready to import: ${name}` })).toBeVisible();
   await page.locator('select[aria-label="Research area"]').selectOption('__root__');
-  await page.locator('select[aria-label="Book"]').selectOption('col-thesis');
+  await page.locator('select[aria-label="Book"]').selectOption('__new_book__');
+  await page.getByLabel('New book name').fill('Uploads Book');
   await page.getByRole('button', { name: /Import \(1\) into book/ }).click();
   await expect(page.getByRole('heading', { name: 'Import Academic Papers' })).toBeHidden();
   await openReaderView(page);

@@ -80,13 +80,11 @@ import {
 
 const INITIAL_CATEGORIES: CategoryDefinition[] = [
   { id: 'ALL', label: 'ALL RESEARCH', shortLabel: 'All' },
-  { id: 'FOOD SYSTEMS', label: 'FOOD SYSTEMS', shortLabel: 'Food Systems' },
-  { id: 'CONSUMER BEHAVIOUR', label: 'CONSUMER BEHAVIOUR', shortLabel: 'Consumer Behaviour' },
-  { id: 'BIG DATA', label: 'BIG DATA', shortLabel: 'Big Data' },
-  { id: 'IMMERSIVE TECHNOLOGIES', label: 'IMMERSIVE TECHNOLOGIES', shortLabel: 'Immersive Tech' },
-  { id: 'BIODIVERSITY', label: 'BIODIVERSITY', shortLabel: 'Biodiversity' },
-  { id: 'DIGITAL INNOVATION', label: 'DIGITAL INNOVATION', shortLabel: 'Digital Innovation' },
-  { id: 'RESEARCH PROJECTS', label: 'RESEARCH PROJECTS', shortLabel: 'Research Projects' },
+  { id: 'GENERAL', label: 'GENERAL', shortLabel: 'General' },
+  { id: 'THEORY', label: 'THEORY & CONCEPTS', shortLabel: 'Theory' },
+  { id: 'EMPIRICAL', label: 'EMPIRICAL STUDIES', shortLabel: 'Empirical' },
+  { id: 'METHODOLOGY', label: 'METHODOLOGY', shortLabel: 'Methodology' },
+  { id: 'REVIEW', label: 'LITERATURE REVIEWS', shortLabel: 'Reviews' },
 ];
 
 // Arrange the default shelf order so the active centerpiece book ('item-01') sits right in the middle
@@ -145,15 +143,18 @@ export default function App() {
     typeof window !== 'undefined' && localStorage.getItem('marginalia_guest_mode_v1') === 'true'
   );
 
-  // Use Firebase user profile or fall back to local defaults
+  // Use Firebase user profile or fall back to neutral guest defaults
   const profile: ResearcherProfile = {
     ...RESEARCHER_PROFILE,
-    name: userProfile?.displayName || userProfile?.name || RESEARCHER_PROFILE.name,
-    title: userProfile?.title || RESEARCHER_PROFILE.title,
+    name: userProfile?.displayName || userProfile?.name || (!user ? 'Guest Scholar' : RESEARCHER_PROFILE.name),
+    title: userProfile?.title || (!user ? 'Scholar & Reader' : RESEARCHER_PROFILE.title),
     email: userProfile?.email || '',
     photoURL: userProfile?.photoURL || null,
-    primaryAffiliation: userProfile?.primaryAffiliation || RESEARCHER_PROFILE.primaryAffiliation,
-    researchPillars: userProfile?.researchPillars || RESEARCHER_PROFILE.researchPillars,
+    primaryAffiliation: userProfile?.primaryAffiliation || (!user ? 'Personal Archive' : RESEARCHER_PROFILE.primaryAffiliation),
+    researchPillars: userProfile?.researchPillars || (!user ? [] : RESEARCHER_PROFILE.researchPillars),
+    academicBackground: !user ? [] : RESEARCHER_PROFILE.academicBackground,
+    secondaryAffiliations: !user ? [] : RESEARCHER_PROFILE.secondaryAffiliations,
+    verifiedLinks: !user ? [] : RESEARCHER_PROFILE.verifiedLinks,
     ...(userProfile && { settings: userProfile.settings || {} }),
   } as ResearcherProfile;
   
@@ -304,44 +305,18 @@ export default function App() {
     updateUserSettings,
   ]);
 
-  // Persistent Research Library (Merging any new default vintage volumes if user had older storage)
+  // Persistent Research Library (Clean slate by default for fresh users & guests)
   const [researchItems, setResearchItems] = useState<ResearchItem[]>(() => {
-    const defaults = buildInitialOrderedItems();
     if (typeof window !== 'undefined') {
       try {
         const saved = localStorage.getItem('academic_archive_items_v3');
         if (saved) return JSON.parse(saved);
-
-        // Migrate from v2 while ensuring all 12 vintage shelf books are present
-        const savedV2 = localStorage.getItem('academic_archive_items_v2');
-        if (savedV2) {
-          const parsedV2: ResearchItem[] = JSON.parse(savedV2);
-          const v2Map = new Map(parsedV2.map((p) => [p.id, p]));
-          const merged: ResearchItem[] = [];
-          for (const defItem of defaults) {
-            const existing = v2Map.get(defItem.id);
-            if (existing) {
-              merged.push({
-                ...defItem,
-                ...existing,
-                bookAppearance: existing.bookAppearance || defItem.bookAppearance,
-              });
-              v2Map.delete(defItem.id);
-            } else {
-              merged.push(defItem);
-            }
-          }
-          for (const extra of v2Map.values()) {
-            merged.push(extra);
-          }
-          return merged;
-        }
       } catch {}
     }
-    return defaults;
+    return [];
   });
 
-  // Persistent Collections
+  // Persistent Collections (Clean slate by default)
   const [collections, setCollections] = useState<ResearchCollection[]>(() => {
     if (typeof window !== 'undefined') {
       try {
@@ -349,7 +324,7 @@ export default function App() {
         if (saved) return JSON.parse(saved);
       } catch {}
     }
-    return INITIAL_COLLECTIONS;
+    return [];
   });
 
   // Persistent Notes
@@ -360,7 +335,7 @@ export default function App() {
         if (saved) return JSON.parse(saved);
       } catch {}
     }
-    return INITIAL_NOTES;
+    return [];
   });
 
   // Persistent Highlights
@@ -371,7 +346,7 @@ export default function App() {
         if (saved) return JSON.parse(saved);
       } catch {}
     }
-    return INITIAL_HIGHLIGHTS;
+    return [];
   });
 
   // Persistent Reading Sessions
@@ -382,7 +357,7 @@ export default function App() {
         if (saved) return JSON.parse(saved);
       } catch {}
     }
-    return INITIAL_READING_SESSIONS;
+    return [];
   });
 
   // Persistent Reading Goals
@@ -393,7 +368,7 @@ export default function App() {
         if (saved) return JSON.parse(saved);
       } catch {}
     }
-    return INITIAL_GOALS;
+    return [];
   });
 
   // Persistent Activity Logs
@@ -404,7 +379,7 @@ export default function App() {
         if (saved) return JSON.parse(saved);
       } catch {}
     }
-    return INITIAL_ACTIVITY_LOGS;
+    return [];
   });
 
   // Persistent Categories
@@ -1243,6 +1218,19 @@ export default function App() {
     setShelfIndex(0);
   }, [clearUserContent, user]);
 
+  const handleLoadSampleLibrary = useCallback(() => {
+    playPaperRustle();
+    const defaults = buildInitialOrderedItems();
+    setResearchItems(defaults);
+    setCollections(INITIAL_COLLECTIONS);
+    setNotes(INITIAL_NOTES);
+    setHighlights(INITIAL_HIGHLIGHTS);
+    setReadingSessions(INITIAL_READING_SESSIONS);
+    setGoals(INITIAL_GOALS);
+    setActivities(INITIAL_ACTIVITY_LOGS);
+    logActivity('imported', 'Loaded demonstration sample library (12 volumes)');
+  }, [logActivity]);
+
   // Global Keyboard Navigation on Bookshelf
   useEffect(() => {
     if (activeView !== 'shelf') return;
@@ -1472,9 +1460,16 @@ export default function App() {
                 <section className="mx-auto my-12 max-w-lg border border-[#141414]/15 bg-[#F4F2ED] p-8 text-center shadow-sm" aria-label="Empty library">
                   <BookOpen className="mx-auto mb-3 h-8 w-8 text-[#1F3FB0]" />
                   <h2 className="font-serif text-2xl text-[#141414]">Your library is empty</h2>
-                  <p className="mt-2 font-mono text-xs leading-relaxed text-[#77736B]">Import article details or attach a PDF to start your collection.</p>
+                  <p className="mt-2 font-mono text-xs leading-relaxed text-[#77736B]">
+                    Welcome to Marginalia. Import research papers (DOI, PDF, BibTeX/RIS) or load sample books to explore the vintage bookshelf.
+                  </p>
                   <div className="mt-5 flex flex-wrap justify-center gap-2">
-                    <button type="button" onClick={() => setIsImportModalOpen(true)} className="bg-[#141414] px-4 py-2 font-mono text-xs uppercase text-white hover:bg-[#1F3FB0]">Add Papers</button>
+                    <button type="button" onClick={() => setIsImportModalOpen(true)} className="bg-[#141414] px-4 py-2 font-mono text-xs uppercase text-white hover:bg-[#1F3FB0] transition-colors cursor-pointer">
+                      Add Papers
+                    </button>
+                    <button type="button" onClick={handleLoadSampleLibrary} className="border border-[#141414]/25 bg-white px-4 py-2 font-mono text-xs uppercase text-[#141414] hover:border-[#1F3FB0] hover:text-[#1F3FB0] transition-colors cursor-pointer">
+                      Load Sample Demo (12 Papers)
+                    </button>
                     {researchItems.length > 0 && <button type="button" onClick={() => setActiveCategory('ALL')} className="border border-[#141414]/25 bg-white px-4 py-2 font-mono text-xs uppercase">Show all papers</button>}
                   </div>
                 </section>

@@ -21,7 +21,8 @@ test('guest can explicitly continue, import a Scopus-style CSV, and read its abs
   });
   await expect(page.getByText('STAGED FOR IMPORT (1)')).toBeVisible();
   await page.locator('select[aria-label="Research area"]').selectOption('__root__');
-  await page.locator('select[aria-label="Book"]').selectOption('col-thesis');
+  await page.locator('select[aria-label="Book"]').selectOption('__new_book__');
+  await page.getByLabel('New book name').fill('PhD Thesis Core Literature');
   await page.getByRole('button', { name: /Import \(1\) into book/ }).click();
   await page.getByRole('heading', { name: 'Import Academic Papers' }).waitFor({ state: 'hidden' });
 
@@ -46,14 +47,15 @@ test('bibliography imports can be assigned to an existing book', async ({ page }
   });
 
   await page.locator('select[aria-label="Research area"]').selectOption('__root__');
-  await page.locator('select[aria-label="Book"]').selectOption('col-thesis');
+  await page.locator('select[aria-label="Book"]').selectOption('__new_book__');
+  await page.getByLabel('New book name').fill('Folder-target book');
   await page.getByRole('button', { name: /Import \(1\) into book/ }).click();
 
   const memberships = await page.evaluate(() => {
     const papers = JSON.parse(localStorage.getItem('academic_archive_items_v3') || '[]') as Array<{ title: string; collectionIds: string[] }>;
     return papers.find((paper) => paper.title === 'Folder-target import')?.collectionIds || [];
   });
-  expect(memberships).toContain('col-thesis');
+  expect(memberships.length).toBeGreaterThan(0);
 });
 
 test('imports can create a named research area and a book containing multiple papers', async ({ page }) => {

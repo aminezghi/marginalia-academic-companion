@@ -134,6 +134,7 @@ export const ShelfArchive: React.FC<ShelfArchiveProps> = ({
   const pointerHistoryRef = useRef<PointerSample[]>([]);
   const wheelSettleTimeoutRef = useRef<number | null>(null);
   const bookClickStartRef = useRef<{ x: number; y: number; time: number } | null>(null);
+  const lastBookClickTimeRef = useRef<number>(0);
 
   const lastSoundBookRef = useRef<number>(safeActiveIndex);
   const lastReportedSelectRef = useRef<number>(safeActiveIndex);
@@ -391,7 +392,8 @@ export const ShelfArchive: React.FC<ShelfArchiveProps> = ({
     if (e.button !== 0) return;
     if (
       (e.target as HTMLElement).closest('[data-shelf-nav-btn="true"]') ||
-      (e.target as HTMLElement).closest('[data-lamp="true"]')
+      (e.target as HTMLElement).closest('[data-lamp="true"]') ||
+      (e.target as HTMLElement).closest('[data-shelf-book="true"]')
     ) {
       return;
     }
@@ -585,9 +587,13 @@ export const ShelfArchive: React.FC<ShelfArchiveProps> = ({
 
   // Safe Stage geometry bounded between left botanical ivy and right banker's lamp:
   const leftClearance = isMobile ? 32 : 72;
-  const lampClearance = isMobile ? 96 : 148;
+  const lampClearance = isMobile ? 120 : 180;
+  const availableShelfWidth = Math.max(160, containerWidth - leftClearance - lampClearance);
+  const totalShelfSpan = runningX;
+  const fitsEntirelyOnShelf = totalShelfSpan <= availableShelfWidth;
+
   const readingCenterShift = (leftClearance - lampClearance) / 2;
-  const cameraX = rawCameraX;
+  const cameraX = fitsEntirelyOnShelf ? totalShelfSpan / 2 : rawCameraX;
 
   const velocitySwayDeg = Math.max(-3.2, Math.min(3.2, currentVelocity * 0.28));
   const nearestCenterIndex = Math.round(clampedVisual);
@@ -666,7 +672,7 @@ export const ShelfArchive: React.FC<ShelfArchiveProps> = ({
       </div>
 
       {/* RIGHT VINTAGE BANKER'S DESK LAMP SITTING ON WOODEN SHELF PLANK */}
-      <div className="absolute right-3 sm:right-6 md:right-8 bottom-[26px] sm:bottom-[34px] md:bottom-[38px] z-50 pointer-events-auto">
+      <div className="absolute right-3 sm:right-6 md:right-8 bottom-[26px] sm:bottom-[34px] md:bottom-[38px] z-[60] pointer-events-auto">
         <VintageBankersLamp
           isLit={isNightMode}
           onToggle={onToggleNightMode || (() => {})}
@@ -830,15 +836,25 @@ export const ShelfArchive: React.FC<ShelfArchiveProps> = ({
 
           const itemPaperCount = item.bookPaperIds?.length || 1;
 
-          const handleBookSelect = () => {
+          // Screen position check to guarantee books never overlap the banker's lamp:
+          const screenX = containerWidth / 2 + translateX;
+          const lampBoundary = containerWidth - lampClearance;
+          const isNearLamp = screenX + currentWidth / 2 > lampBoundary;
+          const lampFade = isNearLamp
+            ? Math.max(0, Math.min(1, (lampBoundary + 24 - (screenX - currentWidth / 2)) / 70))
+            : 1;
+
+          const handleDirectBookSelect = () => {
+            const now = performance.now();
+            if (now - lastBookClickTimeRef.current < 350) return;
+            lastBookClickTimeRef.current = now;
+
             playPaperRustle();
-            if (index !== nearestCenterIndex) {
-              // Direct choose: select clicked book, pull out, and smoothly glide shelf to center it
+            if (index !== safeActiveIndex) {
               onSelectIndex(index);
               setPulledOutBookId(item.id);
               animateShelfToBook(index);
             } else {
-              // Focused center book
               if (pulledOutBookId === item.id) {
                 (onReadPaper || onOpenDetail)(item);
               } else {
@@ -859,6 +875,8 @@ export const ShelfArchive: React.FC<ShelfArchiveProps> = ({
                 zIndex,
                 transformOrigin: '50% 100%',
                 willChange: 'transform, width, height',
+                opacity: lampFade < 0.05 ? 0 : lampFade,
+                pointerEvents: lampFade < 0.25 ? 'none' : 'auto',
                 filter: isNightMode
                   ? 'drop-shadow(-8px 10px 16px rgba(0,0,0,0.85)) drop-shadow(-2px 4px 6px rgba(0,0,0,0.55))'
                   : undefined,
@@ -877,15 +895,15 @@ export const ShelfArchive: React.FC<ShelfArchiveProps> = ({
                 const dy = Math.abs(e.clientY - bookClickStartRef.current.y);
                 const dt = performance.now() - bookClickStartRef.current.time;
                 bookClickStartRef.current = null;
-                // If the pointer contact stayed within 16px and was released within 800ms, it is a click!
-                if (dx < 16 && dy < 16 && dt < 800) {
+                // If contact stayed within 18px and released within 650ms, it is an intentional click/tap
+                if (dx < 18 && dy < 18 && dt < 650) {
                   e.stopPropagation();
-                  handleBookSelect();
+                  handleDirectBookSelect();
                 }
               }}
               onClick={(e) => {
                 e.stopPropagation();
-                handleBookSelect();
+                handleDirectBookSelect();
               }}
               onDoubleClick={(e) => {
                 e.stopPropagation();
@@ -921,7 +939,7 @@ export const ShelfArchive: React.FC<ShelfArchiveProps> = ({
               onKeyDown={(e) => {
                 if (e.key === 'Enter' || e.key === ' ') {
                   e.preventDefault();
-                  handleBookSelect();
+                  handleDirectBookSelect();
                 }
               }}
             >

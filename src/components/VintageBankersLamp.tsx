@@ -18,10 +18,14 @@ export const VintageBankersLamp: React.FC<VintageBankersLampProps> = ({
   className = '',
 }) => {
   const [isPulling, setIsPulling] = useState(false);
+  const lastToggleTimeRef = React.useRef(0);
 
-  const handlePullChain = (e: React.MouseEvent | React.PointerEvent) => {
+  const handlePullChain = (e: React.MouseEvent | React.PointerEvent | React.TouchEvent) => {
     e.preventDefault();
     e.stopPropagation();
+    const now = performance.now();
+    if (now - lastToggleTimeRef.current < 350) return;
+    lastToggleTimeRef.current = now;
     setIsPulling(true);
     playTactileClick();
     onToggle();
@@ -40,6 +44,7 @@ export const VintageBankersLamp: React.FC<VintageBankersLampProps> = ({
       onMouseDown={(e) => e.stopPropagation()}
       onPointerDown={(e) => e.stopPropagation()}
       onTouchStart={(e) => e.stopPropagation()}
+      onTouchEnd={handlePullChain}
       onClick={handlePullChain}
       onKeyDown={(e) => {
         if (e.key === 'Enter' || e.key === ' ') {

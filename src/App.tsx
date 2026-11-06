@@ -29,6 +29,7 @@ import {
   METHODOLOGY_CARDS,
 } from './data/researchData';
 import { DEFAULT_CATEGORY_APPEARANCES } from './data/bookAppearanceData';
+import { UNIVERSAL_OPEN_SCIENCE_PAPERS } from './services/sampleResearchService';
 
 import { TopNav, MainViewMode } from './components/TopNav';
 import { CategoryTabs } from './components/CategoryTabs';
@@ -1562,7 +1563,7 @@ export default function App() {
                   <p className={`mt-2 font-mono text-xs leading-relaxed ${isNightMode ? 'text-[#9E9689]' : 'text-[#77736B]'}`}>
                     Welcome to Marginalia. Import research papers (DOI, PDF, BibTeX/RIS) or load curated open-access samples to explore the vintage bookshelf.
                   </p>
-                  <div className="mt-5 flex flex-wrap justify-center gap-2">
+                  <div className="mt-5 flex flex-wrap justify-center gap-2.5">
                     <button
                       type="button"
                       onClick={() => setIsImportModalOpen(true)}
@@ -1576,6 +1577,23 @@ export default function App() {
                     </button>
                     <button
                       type="button"
+                      onClick={() => {
+                        playPaperRustle();
+                        setResearchItems(UNIVERSAL_OPEN_SCIENCE_PAPERS);
+                        setShelfIndex(0);
+                      }}
+                      className={`border px-4 py-2 font-mono text-xs uppercase transition-colors cursor-pointer flex items-center gap-1.5 ${
+                        isNightMode
+                          ? 'border-[#D4AF37]/60 bg-[#25201A] text-[#D4AF37] hover:bg-[#D4AF37] hover:text-[#121110]'
+                          : 'border-[#1F3FB0]/40 bg-[#EEF2FF] text-[#1F3FB0] hover:bg-[#1F3FB0] hover:text-white'
+                      }`}
+                      title="Instantly load 4 landmark open-science papers (Attention is All You Need, CRISPR-Cas9, ResNet, AlphaFold)"
+                    >
+                      <BookOpen className="w-3.5 h-3.5" />
+                      <span>Quick Demo (Open Science)</span>
+                    </button>
+                    <button
+                      type="button"
                       onClick={() => setIsTopicModalOpen(true)}
                       className={`border px-4 py-2 font-mono text-xs uppercase transition-colors cursor-pointer flex items-center gap-1.5 ${
                         isNightMode
@@ -1584,7 +1602,7 @@ export default function App() {
                       }`}
                     >
                       <Sparkles className={`w-3.5 h-3.5 ${isNightMode ? 'text-[#D4AF37]' : 'text-[#1F3FB0]'}`} />
-                      <span>Explore Topic Samples (Open Access)</span>
+                      <span>Explore Topics (Open Access)</span>
                     </button>
                     {researchItems.length > 0 && (
                       <button

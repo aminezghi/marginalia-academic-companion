@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { ChangeEvent } from 'react';
 import { Document, Page, pdfjs } from 'react-pdf';
 import type { PDFDocumentProxy } from 'pdfjs-dist';
+import { BookOpen, ExternalLink, FileUp, Sparkles } from 'lucide-react';
 import { ResearchItem } from '../types/research';
 import { loadPdfBytes } from '../services/pdfDocuments';
 import 'react-pdf/dist/Page/AnnotationLayer.css';
@@ -78,16 +79,25 @@ export function PdfDocumentReader({
     setPageCount(0);
     setRenderedPages(new Set());
 
-    void loadPdfBytes(paper).then((bytes) => {
-      if (!cancelled) setPdfBytes(bytes);
-    }).catch((loadError: unknown) => {
-      if (!cancelled) {
-        setError(loadError instanceof Error ? loadError.message : 'Could not load this PDF.');
-      }
-    });
+    void loadPdfBytes(paper)
+      .then((bytes) => {
+        if (!cancelled) setPdfBytes(bytes);
+      })
+      .catch((loadError: unknown) => {
+        if (!cancelled) {
+          setError(
+            loadError instanceof Error ? loadError.message : 'Could not load this PDF.'
+          );
+          // Set to 1 page for the Archival Folio edition
+          onPageCount(1);
+          onCurrentPageChange(1);
+        }
+      });
 
-    return () => { cancelled = true; };
-  }, [paper.id, paper.storagePath, paper.guestPdfId]);
+    return () => {
+      cancelled = true;
+    };
+  }, [paper.id, paper.storagePath, paper.guestPdfId, onPageCount, onCurrentPageChange]);
 
   const file = useMemo(() => pdfBytes ? { data: pdfBytes } : null, [pdfBytes]);
 
@@ -156,93 +166,160 @@ export function PdfDocumentReader({
       aria-label="PDF pages"
     >
       {error && (
-        <div
-          role="alert"
-          className={`mx-auto max-w-2xl border p-6 text-sm shadow-xl transition-colors ${
+        <article
+          className={`mx-auto max-w-3xl border p-6 sm:p-10 md:p-12 shadow-2xl transition-colors relative my-4 sm:my-8 ${
             isNight
-              ? 'bg-[#1A1815] border-[#2E2822] text-[#EDE8DF]'
-              : 'bg-[#F9F7F2] border-[#141414]/15 text-[#141414]'
+              ? 'bg-[#181614] border-[#38322A] text-[#EDE8DF]'
+              : 'bg-[#FAF8F3] border-[#141414]/20 text-[#141414]'
           }`}
+          style={{
+            backgroundImage: isNight
+              ? 'radial-gradient(#25201A 0.75px, transparent 0.75px)'
+              : 'radial-gradient(#14141412 0.75px, transparent 0.75px)',
+            backgroundSize: '16px 16px',
+          }}
         >
-          <div className="flex items-center gap-2">
-            <span
-              className={`w-2 h-2 rounded-full ${
-                isNight ? 'bg-[#D4AF37]' : 'bg-[#1F3FB0]'
-              }`}
-            />
-            <strong
-              className={`font-mono text-xs uppercase tracking-wider ${
-                isNight ? 'text-[#D4AF37]' : 'text-[#1F3FB0]'
-              }`}
-            >
-              PDF Document Unavailable
-            </strong>
-          </div>
-          <p
-            className={`mt-2 font-mono text-xs leading-relaxed ${
-              isNight ? 'text-[#9E9689]' : 'text-[#77736B]'
-            }`}
-          >
-            This paper record has no local PDF attached yet. You can attach a local PDF file or open the original publication directly via DOI / Open Access web repository.
-          </p>
-
-          <div className="mt-4 flex flex-wrap items-center gap-2.5">
-            <button
-              type="button"
-              onClick={() => fileInputRef.current?.click()}
-              disabled={isAttaching}
-              className={`px-4 py-2 font-mono text-xs uppercase tracking-wide transition-colors cursor-pointer disabled:opacity-60 border ${
+          {/* Top Archival Folio Banner */}
+          <header className={`border-b pb-4 ${isNight ? 'border-[#38322A]' : 'border-[#141414]/15'}`}>
+            <div className="flex flex-wrap items-center justify-between gap-2 text-[10px] font-mono tracking-widest uppercase">
+              <span className={`flex items-center gap-1.5 ${isNight ? 'text-[#D4AF37]' : 'text-[#1F3FB0]'}`}>
+                <BookOpen className="w-3.5 h-3.5" />
+                <span>ARCHIVAL FOLIO EDITION · MARGINALIA STUDY ROOM</span>
+              </span>
+              <span className={`px-2 py-0.5 rounded border ${
                 isNight
-                  ? 'bg-[#25201A] border-[#3E362C] text-[#EDE8DF] hover:border-[#D4AF37] hover:text-[#D4AF37]'
-                  : 'bg-[#141414] border-[#141414] text-white hover:bg-[#1F3FB0]'
-              }`}
-            >
-              {isAttaching ? 'Attaching PDF…' : paper.storagePath || paper.guestPdfId ? 'Choose another PDF' : 'Attach Local PDF'}
-            </button>
+                  ? 'border-[#38322A] bg-[#221E19] text-[#C9A354]'
+                  : 'border-[#141414]/15 bg-white text-[#77736B]'
+              }`}>
+                {paper.category.toUpperCase()} · {paper.year}
+              </span>
+            </div>
 
-            {sourceUrl && (
-              <a
-                href={sourceUrl}
-                target="_blank"
-                rel="noopener noreferrer"
-                className={`inline-flex items-center px-4 py-2 font-mono text-xs uppercase transition-colors cursor-pointer border ${
+            {/* Document Title */}
+            <h1 className={`mt-4 font-serif text-2xl sm:text-3xl font-normal leading-snug tracking-tight ${
+              isNight ? 'text-[#EDE8DF]' : 'text-[#141414]'
+            }`}>
+              {paper.title}
+            </h1>
+
+            {/* Authors & Academic Provenance */}
+            <p className={`mt-2 font-serif italic text-sm ${
+              isNight ? 'text-[#A89F91]' : 'text-[#5A5248]'
+            }`}>
+              {paper.authors.join(', ')}
+            </p>
+
+            {/* Journal / Venue & DOI Links */}
+            <div className="mt-3 flex flex-wrap items-center gap-2 text-xs font-mono">
+              {paper.journal && (
+                <span className={`px-2 py-0.5 rounded text-[11px] ${
+                  isNight ? 'bg-[#25201A] text-[#EDE8DF]' : 'bg-[#EDEBE6] text-[#141414]'
+                }`}>
+                  {paper.journal}
+                </span>
+              )}
+              {paper.doi && (
+                <a
+                  href={`https://doi.org/${encodeURIComponent(paper.doi)}`}
+                  target="_blank"
+                  rel="noreferrer"
+                  className={`inline-flex items-center gap-1 transition-colors underline decoration-dotted text-[11px] ${
+                    isNight ? 'text-[#D4AF37] hover:text-[#F3C74D]' : 'text-[#1F3FB0] hover:text-[#143088]'
+                  }`}
+                  title="Official DOI Link"
+                >
+                  <span>doi:{paper.doi}</span>
+                  <ExternalLink className="w-2.5 h-2.5 opacity-70" />
+                </a>
+              )}
+            </div>
+          </header>
+
+          {/* Synthesized Abstract Section */}
+          <section className="my-6">
+            <h2 className={`text-[11px] font-mono uppercase tracking-widest mb-3 flex items-center gap-1.5 ${
+              isNight ? 'text-[#D4AF37]' : 'text-[#1F3FB0]'
+            }`}>
+              <Sparkles className="w-3.5 h-3.5" />
+              <span>SYNTHESIZED ABSTRACT & SCHOLARLY SUMMARY</span>
+            </h2>
+
+            <div className={`font-serif text-sm sm:text-base leading-relaxed whitespace-pre-wrap select-text first-letter:font-serif first-letter:text-3xl sm:first-letter:text-4xl first-letter:float-left first-letter:mr-2.5 first-letter:leading-none first-letter:font-normal ${
+              isNight
+                ? 'text-[#D5CEC2] first-letter:text-[#D4AF37]'
+                : 'text-[#2C2723] first-letter:text-[#1F3FB0]'
+            }`}>
+              {paper.abstract || 'No abstract text available for this publication record.'}
+            </div>
+          </section>
+
+          {/* Study Design / Methodological Protocols */}
+          {(paper.sample || (paper.tags && paper.tags.length > 0)) && (
+            <section className={`border-t pt-4 my-4 ${isNight ? 'border-[#38322A]' : 'border-[#141414]/15'}`}>
+              <div className="flex flex-wrap items-center gap-2 text-xs font-mono">
+                {paper.sample && (
+                  <span className={`px-2.5 py-1 rounded border ${
+                    isNight ? 'border-[#38322A] bg-[#221E19] text-[#C9A354]' : 'border-[#141414]/15 bg-white text-[#77736B]'
+                  }`}>
+                    SAMPLE: {paper.sample}
+                  </span>
+                )}
+                {paper.tags?.map((t) => (
+                  <span key={t} className={`px-2 py-0.5 rounded text-[10px] ${
+                    isNight ? 'bg-[#2A241E] text-[#B8AE9F]' : 'bg-[#EDEBE6] text-[#554F46]'
+                  }`}>
+                    #{t}
+                  </span>
+                ))}
+              </div>
+            </section>
+          )}
+
+          {/* Archival Actions: Read Full Text & Attach PDF */}
+          <footer className={`border-t pt-5 mt-6 flex flex-wrap items-center justify-between gap-3 ${
+            isNight ? 'border-[#38322A]' : 'border-[#141414]/15'
+          }`}>
+            <div className="flex flex-wrap items-center gap-2">
+              {sourceUrl && (
+                <a
+                  href={sourceUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className={`inline-flex items-center gap-1.5 px-4 py-2 font-mono text-xs uppercase tracking-wider font-semibold transition-colors cursor-pointer border shadow-xs ${
+                    isNight
+                      ? 'border-[#D4AF37] bg-[#D4AF37] text-[#121110] hover:bg-[#F3C74D]'
+                      : 'border-[#1F3FB0] bg-[#1F3FB0] text-white hover:bg-[#16318C]'
+                  }`}
+                >
+                  <span>Read Full Text (Open Access)</span>
+                  <ExternalLink className="w-3.5 h-3.5" />
+                </a>
+              )}
+
+              <button
+                type="button"
+                onClick={() => fileInputRef.current?.click()}
+                disabled={isAttaching}
+                className={`inline-flex items-center gap-1.5 px-4 py-2 font-mono text-xs uppercase tracking-wider transition-colors cursor-pointer border ${
                   isNight
-                    ? 'border-[#D4AF37]/40 bg-[#D4AF37]/10 text-[#D4AF37] hover:bg-[#D4AF37]/20 hover:border-[#D4AF37]'
-                    : 'border-[#1F3FB0]/30 bg-[#1F3FB0]/5 text-[#1F3FB0] hover:bg-[#1F3FB0]/15'
+                    ? 'border-[#38322A] bg-[#221E19] text-[#EDE8DF] hover:border-[#D4AF37] hover:text-[#D4AF37]'
+                    : 'border-[#141414]/25 bg-white text-[#141414] hover:border-[#1F3FB0] hover:text-[#1F3FB0]'
                 }`}
               >
-                Read Open Access via DOI / Web ↗
-              </a>
-            )}
-          </div>
+                <FileUp className="w-3.5 h-3.5" />
+                <span>{isAttaching ? 'Attaching…' : 'Attach Local PDF'}</span>
+              </button>
+            </div>
+
+            <span className={`text-[10px] font-mono ${isNight ? 'text-[#8C8275]' : 'text-[#77736B]'}`}>
+              Select any text above to highlight or annotate
+            </span>
+          </footer>
 
           {attachError && (
             <span className="mt-2.5 block font-mono text-xs text-rose-500">
               {attachError}
             </span>
-          )}
-
-          {paper.abstract && (
-            <section
-              className={`mt-6 pt-5 border-t text-left ${
-                isNight ? 'border-[#2E2822]' : 'border-[#141414]/15'
-              }`}
-            >
-              <h2
-                className={`font-serif text-lg font-medium tracking-tight ${
-                  isNight ? 'text-[#EDE8DF]' : 'text-[#141414]'
-                }`}
-              >
-                Synthesized Abstract
-              </h2>
-              <p
-                className={`mt-2 whitespace-pre-wrap font-serif text-sm leading-relaxed ${
-                  isNight ? 'text-[#C0B7A8]' : 'text-[#35302B]'
-                }`}
-              >
-                {paper.abstract}
-              </p>
-            </section>
           )}
 
           <input
@@ -253,7 +330,7 @@ export function PdfDocumentReader({
             aria-label="Choose a PDF to attach to this paper"
             onChange={handleAttachFile}
           />
-        </div>
+        </article>
       )}
       {!error && !file && (
         <p role="status" aria-live="polite" className="mx-auto max-w-2xl p-5 text-center font-mono text-sm text-[#77736B]">

@@ -89,6 +89,23 @@ export const ShelfArchive: React.FC<ShelfArchiveProps> = ({
   const [viewportWidth, setViewportWidth] = useState<number>(() =>
     typeof window !== 'undefined' ? window.innerWidth : 1280
   );
+  const [containerWidth, setContainerWidth] = useState<number>(() =>
+    typeof window !== 'undefined' ? window.innerWidth : 1280
+  );
+
+  useEffect(() => {
+    const el = containerRef.current;
+    if (!el) return;
+    const ro = new ResizeObserver((entries) => {
+      for (const entry of entries) {
+        if (entry.contentRect.width > 0) {
+          setContainerWidth(entry.contentRect.width);
+        }
+      }
+    });
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, []);
 
   const safeActiveIndex = Math.max(0, Math.min(items.length - 1, activeIndex));
 
@@ -542,21 +559,50 @@ export const ShelfArchive: React.FC<ShelfArchiveProps> = ({
     runningX += bookLayout[i].shelfSlotWidth / 2;
   }
 
-  // 3. Interpolate the continuous camera focus coordinate `cameraX` at `visualIndex`
+  // 3. Interpolate the continuous camera focus coordinate `rawCameraX` at `visualIndex`
   const maxIdx = bookLayout.length - 1;
   const clampedVisual = Math.max(0, Math.min(maxIdx, visualIndex));
   const leftIdx = Math.floor(clampedVisual);
   const rightIdx = Math.min(maxIdx, leftIdx + 1);
   const frac = clampedVisual - leftIdx;
 
-  let cameraX =
+  let rawCameraX =
     bookLayout[leftIdx].centerX * (1 - frac) +
     bookLayout[rightIdx].centerX * frac;
 
   if (visualIndex < 0) {
-    cameraX += visualIndex * bookLayout[0].shelfSlotWidth;
+    rawCameraX += visualIndex * bookLayout[0].shelfSlotWidth;
   } else if (visualIndex > maxIdx) {
-    cameraX += (visualIndex - maxIdx) * bookLayout[maxIdx].shelfSlotWidth;
+    rawCameraX += (visualIndex - maxIdx) * bookLayout[maxIdx].shelfSlotWidth;
+  }
+
+  // Safe Stage geometry bounded between left botanical ivy and right banker's lamp:
+  const leftClearance = isMobile ? 32 : 72;
+  const lampClearance = isMobile ? 96 : 148;
+  const safeLeft = leftClearance + 16;
+  const safeRight = Math.max(safeLeft + 300, containerWidth - lampClearance - 16);
+  const safeWidth = Math.max(280, safeRight - safeLeft);
+  const safeCenterFromContainerLeft = safeLeft + safeWidth / 2;
+  const safeCenterShift = safeCenterFromContainerLeft - (containerWidth / 2);
+
+  // Total book span along the shelf:
+  const totalBooksWidth =
+    bookLayout[maxIdx].centerX + bookLayout[maxIdx].shelfSlotWidth / 2;
+  const book0LeftEdge =
+    bookLayout[0].centerX - bookLayout[0].shelfSlotWidth / 2;
+  const totalSpan = totalBooksWidth - book0LeftEdge;
+
+  let effectiveCameraX: number;
+  if (totalSpan <= safeWidth) {
+    // All books comfortably fit inside the safe reading stage!
+    // Center the entire collection of books inside the safe zone:
+    effectiveCameraX = book0LeftEdge + totalSpan / 2;
+  } else {
+    // Collection is larger than the stage; smoothly glide camera with visualIndex,
+    // bounded so books never slide past the safe margins into the lamp:
+    const minCameraX = book0LeftEdge + safeWidth / 2;
+    const maxCameraX = totalBooksWidth - safeWidth / 2;
+    effectiveCameraX = Math.max(minCameraX, Math.min(maxCameraX, rawCameraX));
   }
 
   const velocitySwayDeg = Math.max(-3.2, Math.min(3.2, currentVelocity * 0.28));
@@ -761,11 +807,12 @@ export const ShelfArchive: React.FC<ShelfArchiveProps> = ({
           const isHovered = hoveredIndex === index;
           const isPulledOut = isCenterActive && pulledOutBookId === item.id;
 
-          // Reading Area Alignment: centers active volume between left ivy and right banker's lamp
-          const lampClearance = isMobile ? 80 : 124;
-          const leftClearance = isMobile ? 24 : 68;
-          const readingCenterShift = (leftClearance - lampClearance) / 2;
-          const translateX = centerX - cameraX + readingCenterShift;
+          // Reading Area Alignment: bounded within the safe stage between left ivy and right banker's lamp
+          const translateX = (centerX - effectiveCameraX) + safeCenterShift;
+          const bookScreenRight = (containerWidth / 2) + translateX + currentWidth / 2;
+          const lampFade = bookScreenRight > safeRight + 20
+            ? Math.max(0, 1 - (bookScreenRight - (safeRight + 20)) / 50)
+            : 1;
 
           // Pull forward realistically: extra Z & slight lift when clicked (`isPulledOut`)
           const baseActiveZ = isMobile ? 44 : 68;
@@ -829,6 +876,8 @@ export const ShelfArchive: React.FC<ShelfArchiveProps> = ({
                 height: `${currentHeight.toFixed(1)}px`,
                 transform,
                 zIndex,
+                opacity: lampFade,
+                pointerEvents: lampFade < 0.2 ? 'none' : 'auto',
                 transformOrigin: '50% 100%',
                 willChange: 'transform, width, height',
                 filter: isNightMode

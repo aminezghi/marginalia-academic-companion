@@ -8,6 +8,10 @@ import {
   ChevronDown,
   Sparkles,
   Upload,
+  FileSpreadsheet,
+  Globe,
+  FileText,
+  Compass,
 } from 'lucide-react';
 import { CategoryDefinition, ResearchCategory, ResearchItem } from '../types/research';
 import { playPaperRustle, playTactileClick } from '../utils/sound';
@@ -18,9 +22,10 @@ interface CategoryTabsProps {
   onSelectCategory: (category: ResearchCategory) => void;
   items: ResearchItem[];
   onOpenCategoryManager?: () => void;
-  onOpenImport?: () => void;
+  onOpenImport?: (tab?: 'files' | 'doi' | 'pdf') => void;
   onOpenNewArticle?: () => void;
   onOpenCustomizer?: () => void;
+  onOpenTopicSamples?: () => void;
   viewMode?: 'shelf' | 'grid' | 'list';
   onChangeViewMode?: (mode: 'shelf' | 'grid' | 'list') => void;
   isNightMode?: boolean;
@@ -47,6 +52,7 @@ export const CategoryTabs: React.FC<CategoryTabsProps> = ({
   onOpenImport,
   onOpenNewArticle,
   onOpenCustomizer,
+  onOpenTopicSamples,
   viewMode = 'shelf',
   onChangeViewMode,
   isNightMode = false,
@@ -281,7 +287,7 @@ export const CategoryTabs: React.FC<CategoryTabsProps> = ({
             {/* Dropdown Menu */}
             {addDropdownOpen && (
               <div
-                className={`absolute right-0 mt-1.5 w-52 border shadow-xl z-50 py-1 text-xs font-serif ${
+                className={`absolute right-0 mt-1.5 w-60 border shadow-xl z-50 py-1 text-xs font-serif ${
                   isNightMode
                     ? 'bg-[#1E1B17] border-[#38322A] text-[#EDE8DF]'
                     : 'bg-[#F4F1EA] border-[#141414]/25 text-[#141414]'
@@ -292,26 +298,74 @@ export const CategoryTabs: React.FC<CategoryTabsProps> = ({
                   type="button"
                   onClick={() => {
                     setAddDropdownOpen(false);
-                    onOpenImport?.();
+                    onOpenImport?.('files');
                   }}
                   className={`w-full px-3.5 py-2 text-left flex items-center gap-2 cursor-pointer ${
                     isNightMode ? 'hover:bg-[#2A251F]' : 'hover:bg-[#EAE5D9]'
                   }`}
                 >
-                  <Upload className="w-3.5 h-3.5 text-[#D4AF37]" />
-                  <span>Import via DOI, BibTeX, PDF</span>
+                  <FileSpreadsheet className={`w-3.5 h-3.5 ${isNightMode ? 'text-[#D4AF37]' : 'text-[#1F3FB0]'}`} />
+                  <div>
+                    <div className="font-semibold">Upload Files (WoS, PubMed, CSV)</div>
+                    <div className="text-[10px] opacity-70 font-mono">.csv, .bib, .nbib, .ris, .ciw</div>
+                  </div>
                 </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setAddDropdownOpen(false);
+                    onOpenImport?.('doi');
+                  }}
+                  className={`w-full px-3.5 py-2 text-left flex items-center gap-2 cursor-pointer ${
+                    isNightMode ? 'hover:bg-[#2A251F]' : 'hover:bg-[#EAE5D9]'
+                  }`}
+                >
+                  <Globe className={`w-3.5 h-3.5 ${isNightMode ? 'text-[#D4AF37]' : 'text-[#1F3FB0]'}`} />
+                  <span>Live DOI Lookup (Crossref)</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setAddDropdownOpen(false);
+                    onOpenImport?.('pdf');
+                  }}
+                  className={`w-full px-3.5 py-2 text-left flex items-center gap-2 cursor-pointer ${
+                    isNightMode ? 'hover:bg-[#2A251F]' : 'hover:bg-[#EAE5D9]'
+                  }`}
+                >
+                  <FileText className={`w-3.5 h-3.5 ${isNightMode ? 'text-[#D4AF37]' : 'text-[#1F3FB0]'}`} />
+                  <span>Upload PDF Document</span>
+                </button>
+                {onOpenTopicSamples && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setAddDropdownOpen(false);
+                      onOpenTopicSamples();
+                    }}
+                    className={`w-full px-3.5 py-2 text-left flex items-center gap-2 cursor-pointer border-t ${
+                      isNightMode
+                        ? 'border-[#2E2822] hover:bg-[#2A251F]'
+                        : 'border-[#141414]/10 hover:bg-[#EAE5D9]'
+                    }`}
+                  >
+                    <Compass className={`w-3.5 h-3.5 ${isNightMode ? 'text-[#D4AF37]' : 'text-[#1F3FB0]'}`} />
+                    <span>Explore Open Access by Topic</span>
+                  </button>
+                )}
                 <button
                   type="button"
                   onClick={() => {
                     setAddDropdownOpen(false);
                     onOpenNewArticle?.();
                   }}
-                  className={`w-full px-3.5 py-2 text-left flex items-center gap-2 cursor-pointer ${
-                    isNightMode ? 'hover:bg-[#2A251F]' : 'hover:bg-[#EAE5D9]'
+                  className={`w-full px-3.5 py-2 text-left flex items-center gap-2 cursor-pointer border-t ${
+                    isNightMode
+                      ? 'border-[#2E2822] hover:bg-[#2A251F]'
+                      : 'border-[#141414]/10 hover:bg-[#EAE5D9]'
                   }`}
                 >
-                  <Sparkles className="w-3.5 h-3.5 text-[#D4AF37]" />
+                  <Sparkles className={`w-3.5 h-3.5 ${isNightMode ? 'text-[#D4AF37]' : 'text-[#1F3FB0]'}`} />
                   <span>Create Manual Entry</span>
                 </button>
                 {onOpenCategoryManager && (
@@ -327,7 +381,7 @@ export const CategoryTabs: React.FC<CategoryTabsProps> = ({
                         : 'border-[#141414]/10 hover:bg-[#EAE5D9]'
                     }`}
                   >
-                    <Plus className="w-3.5 h-3.5 text-[#D4AF37]" />
+                    <Plus className={`w-3.5 h-3.5 ${isNightMode ? 'text-[#D4AF37]' : 'text-[#1F3FB0]'}`} />
                     <span>Manage Categories</span>
                   </button>
                 )}

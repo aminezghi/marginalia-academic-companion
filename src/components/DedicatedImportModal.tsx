@@ -10,11 +10,27 @@ import {
   Sparkles,
   ArrowRight,
   BookOpen,
+  FileSpreadsheet,
+  UploadCloud,
+  ChevronDown,
+  ChevronUp,
+  Database,
 } from 'lucide-react';
 import { ResearchItem, ResearchCategory, ResearchCollection, ImportDestination } from '../types/research';
 import { PdfDocumentReference } from '../services/pdfDocuments';
 import { parseBibliographyFile, ParsedRecord } from '../utils/importer';
 import { playTactileClick, playPaperRustle } from '../utils/sound';
+
+function detectFormatName(filename: string, content: string): string {
+  const ext = filename.toLowerCase().split('.').pop() || '';
+  if (ext === 'bib' || (content.includes('@') && content.includes('{'))) return 'BibTeX Bibliography';
+  if (ext === 'nbib' || ext === 'medline' || /(?:^|\n)PMID\s*-\s*\d+/i.test(content)) return 'PubMed / MEDLINE Record';
+  if (ext === 'ciw' || (/(?:^|\n)PT\s{1,3}J\b/i.test(content) && /(?:^|\n)TI\s{1,3}/i.test(content))) return 'Web of Science (Plain Text)';
+  if (ext === 'enw' || /(?:^|\n)%0\s+/i.test(content)) return 'EndNote Tagged';
+  if (ext === 'ris' || /(?:^|\n)TY\s+-/i.test(content)) return 'RIS Record';
+  if (ext === 'tsv' || (content.slice(0, 1000).match(/\t/g)?.length || 0) > 5) return 'Web of Science / Scopus (Tab-Delimited TSV)';
+  return 'CSV Spreadsheet (PubMed / Scopus / WoS)';
+}
 
 interface DedicatedImportModalProps {
   isOpen: boolean;
@@ -22,6 +38,7 @@ interface DedicatedImportModalProps {
   existingPapers: ResearchItem[];
   collections: ResearchCollection[];
   defaultCollectionIds?: string[];
+  initialTab?: 'files' | 'doi' | 'pdf';
   onImportPapers: (newPapers: ResearchItem[], destination: ImportDestination) => void;
   onStorePdf: (file: File) => Promise<PdfDocumentReference>;
   categories: { id: string; label: string }[];
@@ -33,11 +50,17 @@ export const DedicatedImportModal: React.FC<DedicatedImportModalProps> = ({
   existingPapers,
   collections,
   defaultCollectionIds = [],
+  initialTab = 'files',
   onImportPapers,
   onStorePdf,
   categories,
 }) => {
-  const [activeTab, setActiveTab] = useState<'doi' | 'bibtex' | 'pdf'>('doi');
+  const [activeTab, setActiveTab] = useState<'files' | 'doi' | 'pdf'>(initialTab);
+  const [isDraggingFile, setIsDraggingFile] = useState(false);
+  const [uploadedFileName, setUploadedFileName] = useState<string | null>(null);
+  const [detectedFormat, setDetectedFormat] = useState<string | null>(null);
+  const [isPasteExpanded, setIsPasteExpanded] = useState(false);
+
   const [doiInput, setDoiInput] = useState('');
   const [isDoiLoading, setIsDoiLoading] = useState(false);
   const [doiError, setDoiError] = useState<string | null>(null);
@@ -150,23 +173,40 @@ export const DedicatedImportModal: React.FC<DedicatedImportModalProps> = ({
     if (!text.trim()) return;
     playTactileClick();
     const records = parseBibliographyFile(filename, text);
+    const fmt = detectFormatName(filename, text);
+    setDetectedFormat(fmt);
+    setUploadedFileName(filename === 'pasted.txt' ? 'Pasted Text' : filename);
     setParsedItems(records);
-    setBibliographyError(records.length ? null : 'No article records found. Check the export format and required title column/field.');
+    if (records.length === 0) {
+      setBibliographyError('No article records found in the input. Check that the format matches Web of Science, PubMed, Scopus, BibTeX, or CSV.');
+    } else {
+      setBibliographyError(null);
+      playPaperRustle();
+    }
   };
 
-  const handleBibliographyFile = async (event: React.ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0];
-    if (!file) return;
+  const handleProcessFile = async (file: File) => {
     setBibliographyError(null);
+    setDetectedFormat(null);
+    setUploadedFileName(null);
+    playTactileClick();
     try {
-      if (file.size > 20 * 1024 * 1024) throw new Error('Bibliography files must be smaller than 20 MB.');
+      if (file.size > 25 * 1024 * 1024) throw new Error('Bibliography files must be smaller than 25 MB.');
       const content = await file.text();
       setRawText(content);
-      parseBibliography(content, file.name);
+      const records = parseBibliographyFile(file.name, content);
+      const fmt = detectFormatName(file.name, content);
+      setDetectedFormat(fmt);
+      setUploadedFileName(file.name);
+      setParsedItems(records);
+      if (records.length === 0) {
+        setBibliographyError(`No article records could be extracted from "${file.name}". Please check the export columns or format.`);
+      } else {
+        setBibliographyError(null);
+        playPaperRustle();
+      }
     } catch (error) {
       setBibliographyError(error instanceof Error ? error.message : 'Could not read this bibliography file.');
-    } finally {
-      event.target.value = '';
     }
   };
 
@@ -343,8 +383,8 @@ export const DedicatedImportModal: React.FC<DedicatedImportModalProps> = ({
         {/* Tab Selection */}
         <div className="border-b border-[#141414]/15 bg-white flex">
           {[
-            { id: 'doi' as const, label: 'DOI Lookup', icon: Globe },
-            { id: 'bibtex' as const, label: 'Bibliography', icon: FileCode },
+            { id: 'files' as const, label: 'Upload Files (CSV, BibTeX, WoS, PubMed)', icon: FileSpreadsheet },
+            { id: 'doi' as const, label: 'Live DOI Lookup', icon: Globe },
             { id: 'pdf' as const, label: 'PDF Document', icon: FileText },
           ].map((tab) => {
             const Icon = tab.icon;
@@ -357,15 +397,16 @@ export const DedicatedImportModal: React.FC<DedicatedImportModalProps> = ({
                   setActiveTab(tab.id);
                   setParsedItems([]);
                   setDoiError(null);
+                  setBibliographyError(null);
                 }}
-                className={`flex-1 py-3 px-4 font-mono text-xs uppercase tracking-wider flex items-center justify-center gap-2 transition-all cursor-pointer border-b-2 ${
+                className={`flex-1 py-3 px-3 font-mono text-[11px] sm:text-xs uppercase tracking-wider flex items-center justify-center gap-2 transition-all cursor-pointer border-b-2 ${
                   active
                     ? 'border-[#1F3FB0] text-[#1F3FB0] font-semibold bg-[#FAF9F5]'
                     : 'border-transparent text-[#141414]/60 hover:text-[#141414] hover:bg-[#FAF9F5]/50'
                 }`}
               >
-                <Icon className="w-4 h-4" />
-                <span>{tab.label}</span>
+                <Icon className="w-4 h-4 flex-shrink-0" />
+                <span className="truncate">{tab.label}</span>
               </button>
             );
           })}
@@ -373,6 +414,157 @@ export const DedicatedImportModal: React.FC<DedicatedImportModalProps> = ({
 
         {/* Body content based on tab */}
         <div className="p-6 overflow-y-auto flex-1 space-y-5">
+          {/* FILES (CSV, BIBTEX, WOS, PUBMED, RIS) TAB */}
+          {activeTab === 'files' && (
+            <div className="space-y-4">
+              {/* Repository format guidance chips */}
+              <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 text-[11px] font-mono">
+                <div className="p-2 border border-[#141414]/15 bg-white flex items-center gap-1.5">
+                  <Database className="w-3.5 h-3.5 text-[#1F3FB0] flex-shrink-0" />
+                  <div>
+                    <div className="font-semibold text-[#141414]">Web of Science</div>
+                    <div className="text-[9px] text-[#77736B]">.txt, .tsv, .csv, .ciw</div>
+                  </div>
+                </div>
+                <div className="p-2 border border-[#141414]/15 bg-white flex items-center gap-1.5">
+                  <Database className="w-3.5 h-3.5 text-[#1F3FB0] flex-shrink-0" />
+                  <div>
+                    <div className="font-semibold text-[#141414]">PubMed / MEDLINE</div>
+                    <div className="text-[9px] text-[#77736B]">.nbib, .medline, .csv</div>
+                  </div>
+                </div>
+                <div className="p-2 border border-[#141414]/15 bg-white flex items-center gap-1.5">
+                  <Database className="w-3.5 h-3.5 text-[#1F3FB0] flex-shrink-0" />
+                  <div>
+                    <div className="font-semibold text-[#141414]">Scopus</div>
+                    <div className="text-[9px] text-[#77736B]">.csv, .bib, .ris</div>
+                  </div>
+                </div>
+                <div className="p-2 border border-[#141414]/15 bg-white flex items-center gap-1.5">
+                  <FileCode className="w-3.5 h-3.5 text-[#1F3FB0] flex-shrink-0" />
+                  <div>
+                    <div className="font-semibold text-[#141414]">BibTeX</div>
+                    <div className="text-[9px] text-[#77736B]">.bib archives</div>
+                  </div>
+                </div>
+                <div className="p-2 border border-[#141414]/15 bg-white flex items-center gap-1.5">
+                  <FileText className="w-3.5 h-3.5 text-[#1F3FB0] flex-shrink-0" />
+                  <div>
+                    <div className="font-semibold text-[#141414]">RIS / EndNote</div>
+                    <div className="text-[9px] text-[#77736B]">.ris, .enw tagged</div>
+                  </div>
+                </div>
+                <div className="p-2 border border-[#141414]/15 bg-white flex items-center gap-1.5">
+                  <FileSpreadsheet className="w-3.5 h-3.5 text-[#1F3FB0] flex-shrink-0" />
+                  <div>
+                    <div className="font-semibold text-[#141414]">Research CSV / TSV</div>
+                    <div className="text-[9px] text-[#77736B]">Tables with titles/DOIs</div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Drag-and-drop Dropzone */}
+              <div
+                onDragOver={(e) => {
+                  e.preventDefault();
+                  setIsDraggingFile(true);
+                }}
+                onDragLeave={() => setIsDraggingFile(false)}
+                onDrop={(e) => {
+                  e.preventDefault();
+                  setIsDraggingFile(false);
+                  const file = e.dataTransfer.files?.[0];
+                  if (file) handleProcessFile(file);
+                }}
+                className={`border-2 border-dashed p-8 text-center transition-all cursor-pointer ${
+                  isDraggingFile
+                    ? 'border-[#1F3FB0] bg-[#EEF2FF]'
+                    : 'border-[#141414]/20 hover:border-[#1F3FB0] bg-white'
+                }`}
+              >
+                <UploadCloud className="w-9 h-9 text-[#1F3FB0] mx-auto mb-2 opacity-80" />
+                <p className="font-serif text-base text-[#141414]">
+                  {uploadedFileName ? `Loaded: ${uploadedFileName}` : 'Drag & drop your export file here'}
+                </p>
+                <p className="font-mono text-[11px] text-[#77736B] mt-1">
+                  Supports PubMed (.nbib, .medline, .csv), Web of Science (.ciw, .txt, .csv), Scopus (.csv, .bib, .ris), BibTeX (.bib)
+                </p>
+                <label className="inline-flex items-center gap-2 mt-4 px-4 py-2 bg-[#141414] text-white hover:bg-[#1F3FB0] font-mono text-xs uppercase tracking-wider transition-colors cursor-pointer">
+                  <Upload className="w-3.5 h-3.5" />
+                  <span>Browse Export File</span>
+                  <input
+                    type="file"
+                    accept=".csv,.tsv,.bib,.ris,.nbib,.medline,.txt,.enw,.ciw,text/plain,text/csv"
+                    onChange={(e) => {
+                      const file = e.target.files?.[0];
+                      if (file) handleProcessFile(file);
+                    }}
+                    className="sr-only"
+                  />
+                </label>
+              </div>
+
+              {/* Detected format status banner */}
+              {detectedFormat && parsedItems.length > 0 && (
+                <div className="p-3 bg-emerald-50 border border-emerald-300 text-emerald-950 text-xs font-mono flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <Check className="w-4 h-4 text-emerald-700 flex-shrink-0" />
+                    <span>
+                      Detected <strong>{detectedFormat}</strong> ({uploadedFileName}): extracted <strong>{parsedItems.length}</strong> {parsedItems.length === 1 ? 'article' : 'articles'}.
+                    </span>
+                  </div>
+                  <span className="text-[10px] uppercase font-bold text-emerald-800 bg-emerald-200/70 px-2 py-0.5 rounded">
+                    Verified
+                  </span>
+                </div>
+              )}
+
+              {/* Collapsible raw text paste box */}
+              <div className="border border-[#141414]/15 bg-white">
+                <button
+                  type="button"
+                  onClick={() => setIsPasteExpanded(!isPasteExpanded)}
+                  className="w-full px-3 py-2 text-left font-mono text-xs text-[#141414]/80 hover:text-[#141414] flex items-center justify-between cursor-pointer"
+                >
+                  <span className="flex items-center gap-2 font-medium">
+                    <FileCode className="w-3.5 h-3.5 text-[#1F3FB0]" />
+                    <span>Or paste raw bibliography text / BibTeX / CSV rows</span>
+                  </span>
+                  {isPasteExpanded ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
+                </button>
+
+                {isPasteExpanded && (
+                  <div className="p-3 border-t border-[#141414]/10 space-y-2">
+                    <textarea
+                      rows={5}
+                      placeholder="Paste raw BibTeX (@article{...}), PubMed MEDLINE (PMID- ...), RIS (TY - JOUR ...), or CSV text"
+                      value={rawText}
+                      onChange={(e) => setRawText(e.target.value)}
+                      className="w-full bg-[#FAF9F5] border border-[#141414]/20 p-2.5 font-mono text-xs text-[#141414] focus:outline-none focus:border-[#1F3FB0]"
+                    />
+                    <div className="flex justify-end">
+                      <button
+                        type="button"
+                        onClick={() => parseBibliography(rawText)}
+                        disabled={!rawText.trim()}
+                        className="bg-[#141414] text-white hover:bg-[#1F3FB0] disabled:bg-[#141414]/30 transition-colors px-4 py-1.5 font-mono text-xs uppercase cursor-pointer"
+                      >
+                        Parse & Extract Articles
+                      </button>
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              {bibliographyError && (
+                <div className="bg-red-50 border border-red-200 p-3 text-red-800 text-xs flex items-center gap-2">
+                  <AlertCircle className="w-4 h-4 flex-shrink-0" />
+                  <span>{bibliographyError}</span>
+                </div>
+              )}
+            </div>
+          )}
+
           {/* DOI TAB */}
           {activeTab === 'doi' && (
             <div className="space-y-4">
@@ -384,7 +576,7 @@ export const DedicatedImportModal: React.FC<DedicatedImportModalProps> = ({
               <form onSubmit={handleResolveDoi} className="flex gap-2">
                 <input
                   type="text"
-                  placeholder="e.g. 10.1016/j.appet.2023.106821 or full https://doi.org/... URL"
+                  placeholder="e.g. 10.48550/arXiv.1706.03762 or full https://doi.org/... URL"
                   value={doiInput}
                   onChange={(e) => setDoiInput(e.target.value)}
                   className="flex-1 bg-white border border-[#141414]/20 p-2.5 font-mono text-xs text-[#141414] focus:outline-none focus:border-[#1F3FB0]"
@@ -398,27 +590,40 @@ export const DedicatedImportModal: React.FC<DedicatedImportModalProps> = ({
                 </button>
               </form>
 
-              {/* Sample DOIs for quick test */}
-              <div className="flex items-center gap-2 text-xs font-mono text-[#141414]/50">
-                <span>Try sample:</span>
+              {/* Landmark open-science DOIs for quick test */}
+              <div className="flex flex-wrap items-center gap-2 text-xs font-mono text-[#141414]/50">
+                <span>Try open-access landmark:</span>
                 <button
                   type="button"
                   onClick={() => {
-                    setDoiInput('10.1016/j.appet.2023.106821');
+                    setDoiInput('10.48550/arXiv.1706.03762');
                   }}
                   className="text-[#1F3FB0] hover:underline cursor-pointer"
+                  title="Attention Is All You Need (Transformer Architecture)"
                 >
-                  10.1016/j.appet.2023.106821
+                  Attention (Transformer)
                 </button>
                 <span>•</span>
                 <button
                   type="button"
                   onClick={() => {
-                    setDoiInput('10.1016/j.foodqual.2022.104618');
+                    setDoiInput('10.1126/science.1225829');
                   }}
                   className="text-[#1F3FB0] hover:underline cursor-pointer"
+                  title="CRISPR-Cas9 Programmable Gene Editing"
                 >
-                  10.1016/j.foodqual.2022.104618
+                  CRISPR-Cas9
+                </button>
+                <span>•</span>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setDoiInput('10.1038/s41586-021-03819-2');
+                  }}
+                  className="text-[#1F3FB0] hover:underline cursor-pointer"
+                  title="AlphaFold: Highly accurate protein structure prediction"
+                >
+                  AlphaFold
                 </button>
               </div>
 
@@ -428,39 +633,6 @@ export const DedicatedImportModal: React.FC<DedicatedImportModalProps> = ({
                   <span>{doiError}</span>
                 </div>
               )}
-            </div>
-          )}
-
-          {/* BIBTEX / RIS TAB */}
-          {activeTab === 'bibtex' && (
-            <div className="space-y-4">
-              <p className="font-sans text-xs text-[#141414]/70 leading-relaxed">
-                Import BibTeX, RIS, Scopus, Web of Science, or other CSV/TSV exports. Files stay on this device.
-              </p>
-
-              <label className="inline-flex items-center gap-2 px-3 py-2 bg-white border border-[#141414]/20 text-xs font-mono uppercase cursor-pointer hover:border-[#1F3FB0]">
-                <Upload className="w-3.5 h-3.5" /> Choose bibliography file
-                <input type="file" accept=".bib,.ris,.csv,.tsv,.txt,.enw,.ciw,text/plain,text/csv" onChange={handleBibliographyFile} className="sr-only" />
-              </label>
-
-              <textarea
-                rows={7}
-                placeholder="Paste BibTeX, RIS, or CSV/TSV exported from Scopus or Web of Science"
-                value={rawText}
-                onChange={(e) => setRawText(e.target.value)}
-                className="w-full bg-white border border-[#141414]/20 p-3 font-mono text-xs text-[#141414] focus:outline-none focus:border-[#1F3FB0]"
-              />
-
-              <div className="flex justify-end">
-                <button
-                  onClick={() => parseBibliography(rawText)}
-                  disabled={!rawText.trim()}
-                  className="bg-[#141414] text-white hover:bg-[#1F3FB0] transition-colors px-4 py-2 font-mono text-xs uppercase cursor-pointer"
-                >
-                  Parse Bibliography
-                </button>
-              </div>
-              {bibliographyError && <p role="alert" className="text-sm text-rose-800">{bibliographyError}</p>}
             </div>
           )}
 

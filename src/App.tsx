@@ -84,6 +84,7 @@ import {
   Layers,
   LayoutGrid,
   Sparkles,
+  Globe,
 } from 'lucide-react';
 
 const INITIAL_CATEGORIES: CategoryDefinition[] = [
@@ -246,8 +247,15 @@ export default function App() {
   const [isCategoryManagerOpen, setIsCategoryManagerOpen] = useState<boolean>(false);
   const [isCompanionToolsOpen, setIsCompanionToolsOpen] = useState<boolean>(false);
   const [isImportModalOpen, setIsImportModalOpen] = useState<boolean>(false);
+  const [importModalTab, setImportModalTab] = useState<'files' | 'doi' | 'pdf'>('files');
   const [isCustomizerOpen, setIsCustomizerOpen] = useState<boolean>(false);
   const [customizerTargetBook, setCustomizerTargetBook] = useState<ResearchItem | null>(null);
+
+  const handleOpenImport = (tab: 'files' | 'doi' | 'pdf' = 'files') => {
+    playTactileClick();
+    setImportModalTab(tab);
+    setIsImportModalOpen(true);
+  };
 
   // Sound & Cursor state
   const [soundActive, setSoundActive] = useState<boolean>(true);
@@ -1520,10 +1528,8 @@ export default function App() {
                 playTactileClick();
                 setIsCategoryManagerOpen(true);
               }}
-              onOpenImport={() => {
-                playTactileClick();
-                setIsImportModalOpen(true);
-              }}
+              onOpenImport={handleOpenImport}
+              onOpenTopicSamples={() => setIsTopicModalOpen(true)}
               onOpenNewArticle={() => {
                 playTactileClick();
                 setEditingItem(null);
@@ -1566,14 +1572,39 @@ export default function App() {
                   <div className="mt-5 flex flex-wrap justify-center gap-2.5">
                     <button
                       type="button"
-                      onClick={() => setIsImportModalOpen(true)}
-                      className={`px-4 py-2 font-mono text-xs uppercase transition-colors cursor-pointer ${
+                      onClick={() => handleOpenImport('files')}
+                      className={`px-4 py-2 font-mono text-xs uppercase transition-colors cursor-pointer flex items-center gap-1.5 ${
                         isNightMode
                           ? 'bg-[#D4AF37] text-[#121110] hover:bg-[#F3C74D] font-semibold'
                           : 'bg-[#141414] text-white hover:bg-[#1F3FB0]'
                       }`}
                     >
-                      Add Papers
+                      <Upload className="w-3.5 h-3.5" />
+                      <span>Upload Files (CSV, BibTeX, WoS, PubMed)</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => handleOpenImport('doi')}
+                      className={`border px-4 py-2 font-mono text-xs uppercase transition-colors cursor-pointer flex items-center gap-1.5 ${
+                        isNightMode
+                          ? 'border-[#38322A] bg-[#221E19] text-[#EDE8DF] hover:border-[#D4AF37] hover:text-[#D4AF37]'
+                          : 'border-[#141414]/25 bg-white text-[#141414] hover:border-[#1F3FB0] hover:text-[#1F3FB0]'
+                      }`}
+                    >
+                      <Globe className="w-3.5 h-3.5" />
+                      <span>Live DOI Lookup</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setIsTopicModalOpen(true)}
+                      className={`border px-4 py-2 font-mono text-xs uppercase transition-colors cursor-pointer flex items-center gap-1.5 ${
+                        isNightMode
+                          ? 'border-[#38322A] bg-[#221E19] text-[#EDE8DF] hover:border-[#D4AF37] hover:text-[#D4AF37]'
+                          : 'border-[#141414]/25 bg-white text-[#141414] hover:border-[#1F3FB0] hover:text-[#1F3FB0]'
+                      }`}
+                    >
+                      <Sparkles className={`w-3.5 h-3.5 ${isNightMode ? 'text-[#D4AF37]' : 'text-[#1F3FB0]'}`} />
+                      <span>Explore Topics (Open Access)</span>
                     </button>
                     <button
                       type="button"
@@ -1590,19 +1621,7 @@ export default function App() {
                       title="Instantly load 4 landmark open-science papers (Attention is All You Need, CRISPR-Cas9, ResNet, AlphaFold)"
                     >
                       <BookOpen className="w-3.5 h-3.5" />
-                      <span>Quick Demo (Open Science)</span>
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setIsTopicModalOpen(true)}
-                      className={`border px-4 py-2 font-mono text-xs uppercase transition-colors cursor-pointer flex items-center gap-1.5 ${
-                        isNightMode
-                          ? 'border-[#38322A] bg-[#221E19] text-[#EDE8DF] hover:border-[#D4AF37] hover:text-[#D4AF37]'
-                          : 'border-[#141414]/25 bg-white text-[#141414] hover:border-[#1F3FB0] hover:text-[#1F3FB0]'
-                      }`}
-                    >
-                      <Sparkles className={`w-3.5 h-3.5 ${isNightMode ? 'text-[#D4AF37]' : 'text-[#1F3FB0]'}`} />
-                      <span>Explore Topics (Open Access)</span>
+                      <span>Load Open Science Demo</span>
                     </button>
                     {researchItems.length > 0 && (
                       <button
@@ -1692,10 +1711,8 @@ export default function App() {
                 playTactileClick();
                 setIsCategoryManagerOpen(true);
               }}
-              onOpenImport={() => {
-                playTactileClick();
-                setIsImportModalOpen(true);
-              }}
+              onOpenImport={handleOpenImport}
+              onOpenTopicSamples={() => setIsTopicModalOpen(true)}
               onOpenNewArticle={() => {
                 playTactileClick();
                 setEditingItem(null);
@@ -1998,6 +2015,7 @@ export default function App() {
       {/* 1. Dedicated Ingestion Studio (DOI Crossref, PDF, BibTeX, RIS, CSV) */}
       <DedicatedImportModal
         isOpen={isImportModalOpen}
+        initialTab={importModalTab}
         onClose={() => { setIsImportModalOpen(false); setImportCollectionIds([]); }}
         existingPapers={researchItems}
         onImportPapers={handleImportPapers}

@@ -42,6 +42,7 @@ interface DedicatedImportModalProps {
   onImportPapers: (newPapers: ResearchItem[], destination: ImportDestination) => void;
   onStorePdf: (file: File) => Promise<PdfDocumentReference>;
   categories: { id: string; label: string }[];
+  isNightMode?: boolean;
 }
 
 export const DedicatedImportModal: React.FC<DedicatedImportModalProps> = ({
@@ -54,7 +55,9 @@ export const DedicatedImportModal: React.FC<DedicatedImportModalProps> = ({
   onImportPapers,
   onStorePdf,
   categories,
+  isNightMode: propNightMode,
 }) => {
+  const isNight = propNightMode ?? (typeof document !== 'undefined' && document.documentElement.classList.contains('theme-nocturne'));
   const [activeTab, setActiveTab] = useState<'files' | 'doi' | 'pdf'>(initialTab);
   const [isDraggingFile, setIsDraggingFile] = useState(false);
   const [uploadedFileName, setUploadedFileName] = useState<string | null>(null);
@@ -359,29 +362,54 @@ export const DedicatedImportModal: React.FC<DedicatedImportModalProps> = ({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-[#141414]/70 backdrop-blur-sm">
-      <div className="bg-[#EDEBE6] border border-[#141414]/20 w-full max-w-3xl shadow-2xl overflow-hidden flex flex-col max-h-[90vh]">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-[#141414]/75 backdrop-blur-sm">
+      <div
+        className={`border w-full max-w-3xl shadow-2xl overflow-hidden flex flex-col max-h-[90vh] transition-colors ${
+          isNight
+            ? 'bg-[#181614] border-[#38322A] text-[#EDE8DF]'
+            : 'bg-[#EDEBE6] border-[#141414]/20 text-[#141414]'
+        }`}
+      >
         {/* Modal Header */}
-        <div className="border-b border-[#141414]/15 bg-[#E7E4DC] px-6 py-4 flex items-center justify-between">
+        <div
+          className={`border-b px-6 py-4 flex items-center justify-between transition-colors ${
+            isNight
+              ? 'bg-[#1E1B17] border-[#38322A]'
+              : 'bg-[#E7E4DC] border-[#141414]/15'
+          }`}
+        >
           <div className="flex items-center gap-2">
-            <span className="font-mono text-xs uppercase tracking-widest text-[#1F3FB0] font-semibold flex items-center gap-1.5">
+            <span
+              className={`font-mono text-xs uppercase tracking-widest font-semibold flex items-center gap-1.5 ${
+                isNight ? 'text-[#D4AF37]' : 'text-[#1F3FB0]'
+              }`}
+            >
               <Upload className="w-3.5 h-3.5" />
               INGESTION STUDIO
             </span>
-            <span className="text-[#141414]/30 text-xs">/</span>
-            <h2 className="font-serif text-xl font-light text-[#141414]">Import Academic Papers</h2>
+            <span className={isNight ? 'text-[#8C8275]' : 'text-[#141414]/30'}>/</span>
+            <h2 className={`font-serif text-xl font-light ${isNight ? 'text-[#EDE8DF]' : 'text-[#141414]'}`}>
+              Import Academic Papers
+            </h2>
           </div>
 
           <button
             onClick={onClose}
-            className="text-[#141414]/50 hover:text-[#141414] transition-colors p-1 cursor-pointer"
+            className={`transition-colors p-1 cursor-pointer ${
+              isNight ? 'text-[#9E9689] hover:text-[#EDE8DF]' : 'text-[#141414]/50 hover:text-[#141414]'
+            }`}
+            aria-label="Close modal"
           >
             <X className="w-5 h-5" />
           </button>
         </div>
 
         {/* Tab Selection */}
-        <div className="border-b border-[#141414]/15 bg-white flex">
+        <div
+          className={`border-b flex transition-colors ${
+            isNight ? 'bg-[#151413] border-[#38322A]' : 'bg-white border-[#141414]/15'
+          }`}
+        >
           {[
             { id: 'files' as const, label: 'Upload Files (CSV, BibTeX, WoS, PubMed)', icon: FileSpreadsheet },
             { id: 'doi' as const, label: 'Live DOI Lookup', icon: Globe },
@@ -401,8 +429,12 @@ export const DedicatedImportModal: React.FC<DedicatedImportModalProps> = ({
                 }}
                 className={`flex-1 py-3 px-3 font-mono text-[11px] sm:text-xs uppercase tracking-wider flex items-center justify-center gap-2 transition-all cursor-pointer border-b-2 ${
                   active
-                    ? 'border-[#1F3FB0] text-[#1F3FB0] font-semibold bg-[#FAF9F5]'
-                    : 'border-transparent text-[#141414]/60 hover:text-[#141414] hover:bg-[#FAF9F5]/50'
+                    ? isNight
+                      ? 'border-[#D4AF37] text-[#D4AF37] font-semibold bg-[#221E19]'
+                      : 'border-[#1F3FB0] text-[#1F3FB0] font-semibold bg-[#FAF9F5]'
+                    : isNight
+                      ? 'border-transparent text-[#9E9689] hover:text-[#EDE8DF] hover:bg-[#1E1B17]'
+                      : 'border-transparent text-[#5A5248] hover:text-[#141414] hover:bg-[#FAF9F5]/50'
                 }`}
               >
                 <Icon className="w-4 h-4 flex-shrink-0" />
@@ -419,46 +451,70 @@ export const DedicatedImportModal: React.FC<DedicatedImportModalProps> = ({
             <div className="space-y-4">
               {/* Repository format guidance chips */}
               <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 text-[11px] font-mono">
-                <div className="p-2 border border-[#141414]/15 bg-white flex items-center gap-1.5">
-                  <Database className="w-3.5 h-3.5 text-[#1F3FB0] flex-shrink-0" />
+                <div
+                  className={`p-2 border flex items-center gap-1.5 transition-colors ${
+                    isNight ? 'border-[#38322A] bg-[#1E1B17]' : 'border-[#141414]/15 bg-white'
+                  }`}
+                >
+                  <Database className={`w-3.5 h-3.5 flex-shrink-0 ${isNight ? 'text-[#D4AF37]' : 'text-[#1F3FB0]'}`} />
                   <div>
-                    <div className="font-semibold text-[#141414]">Web of Science</div>
-                    <div className="text-[9px] text-[#77736B]">.txt, .tsv, .csv, .ciw</div>
+                    <div className={`font-semibold ${isNight ? 'text-[#EDE8DF]' : 'text-[#141414]'}`}>Web of Science</div>
+                    <div className={`text-[9px] ${isNight ? 'text-[#8C8275]' : 'text-[#77736B]'}`}>.txt, .tsv, .csv, .ciw</div>
                   </div>
                 </div>
-                <div className="p-2 border border-[#141414]/15 bg-white flex items-center gap-1.5">
-                  <Database className="w-3.5 h-3.5 text-[#1F3FB0] flex-shrink-0" />
+                <div
+                  className={`p-2 border flex items-center gap-1.5 transition-colors ${
+                    isNight ? 'border-[#38322A] bg-[#1E1B17]' : 'border-[#141414]/15 bg-white'
+                  }`}
+                >
+                  <Database className={`w-3.5 h-3.5 flex-shrink-0 ${isNight ? 'text-[#D4AF37]' : 'text-[#1F3FB0]'}`} />
                   <div>
-                    <div className="font-semibold text-[#141414]">PubMed / MEDLINE</div>
-                    <div className="text-[9px] text-[#77736B]">.nbib, .medline, .csv</div>
+                    <div className={`font-semibold ${isNight ? 'text-[#EDE8DF]' : 'text-[#141414]'}`}>PubMed / MEDLINE</div>
+                    <div className={`text-[9px] ${isNight ? 'text-[#8C8275]' : 'text-[#77736B]'}`}>.nbib, .medline, .csv</div>
                   </div>
                 </div>
-                <div className="p-2 border border-[#141414]/15 bg-white flex items-center gap-1.5">
-                  <Database className="w-3.5 h-3.5 text-[#1F3FB0] flex-shrink-0" />
+                <div
+                  className={`p-2 border flex items-center gap-1.5 transition-colors ${
+                    isNight ? 'border-[#38322A] bg-[#1E1B17]' : 'border-[#141414]/15 bg-white'
+                  }`}
+                >
+                  <Database className={`w-3.5 h-3.5 flex-shrink-0 ${isNight ? 'text-[#D4AF37]' : 'text-[#1F3FB0]'}`} />
                   <div>
-                    <div className="font-semibold text-[#141414]">Scopus</div>
-                    <div className="text-[9px] text-[#77736B]">.csv, .bib, .ris</div>
+                    <div className={`font-semibold ${isNight ? 'text-[#EDE8DF]' : 'text-[#141414]'}`}>Scopus</div>
+                    <div className={`text-[9px] ${isNight ? 'text-[#8C8275]' : 'text-[#77736B]'}`}>.csv, .bib, .ris</div>
                   </div>
                 </div>
-                <div className="p-2 border border-[#141414]/15 bg-white flex items-center gap-1.5">
-                  <FileCode className="w-3.5 h-3.5 text-[#1F3FB0] flex-shrink-0" />
+                <div
+                  className={`p-2 border flex items-center gap-1.5 transition-colors ${
+                    isNight ? 'border-[#38322A] bg-[#1E1B17]' : 'border-[#141414]/15 bg-white'
+                  }`}
+                >
+                  <FileCode className={`w-3.5 h-3.5 flex-shrink-0 ${isNight ? 'text-[#D4AF37]' : 'text-[#1F3FB0]'}`} />
                   <div>
-                    <div className="font-semibold text-[#141414]">BibTeX</div>
-                    <div className="text-[9px] text-[#77736B]">.bib archives</div>
+                    <div className={`font-semibold ${isNight ? 'text-[#EDE8DF]' : 'text-[#141414]'}`}>BibTeX</div>
+                    <div className={`text-[9px] ${isNight ? 'text-[#8C8275]' : 'text-[#77736B]'}`}>.bib archives</div>
                   </div>
                 </div>
-                <div className="p-2 border border-[#141414]/15 bg-white flex items-center gap-1.5">
-                  <FileText className="w-3.5 h-3.5 text-[#1F3FB0] flex-shrink-0" />
+                <div
+                  className={`p-2 border flex items-center gap-1.5 transition-colors ${
+                    isNight ? 'border-[#38322A] bg-[#1E1B17]' : 'border-[#141414]/15 bg-white'
+                  }`}
+                >
+                  <FileText className={`w-3.5 h-3.5 flex-shrink-0 ${isNight ? 'text-[#D4AF37]' : 'text-[#1F3FB0]'}`} />
                   <div>
-                    <div className="font-semibold text-[#141414]">RIS / EndNote</div>
-                    <div className="text-[9px] text-[#77736B]">.ris, .enw tagged</div>
+                    <div className={`font-semibold ${isNight ? 'text-[#EDE8DF]' : 'text-[#141414]'}`}>RIS / EndNote</div>
+                    <div className={`text-[9px] ${isNight ? 'text-[#8C8275]' : 'text-[#77736B]'}`}>.ris, .enw tagged</div>
                   </div>
                 </div>
-                <div className="p-2 border border-[#141414]/15 bg-white flex items-center gap-1.5">
-                  <FileSpreadsheet className="w-3.5 h-3.5 text-[#1F3FB0] flex-shrink-0" />
+                <div
+                  className={`p-2 border flex items-center gap-1.5 transition-colors ${
+                    isNight ? 'border-[#38322A] bg-[#1E1B17]' : 'border-[#141414]/15 bg-white'
+                  }`}
+                >
+                  <FileSpreadsheet className={`w-3.5 h-3.5 flex-shrink-0 ${isNight ? 'text-[#D4AF37]' : 'text-[#1F3FB0]'}`} />
                   <div>
-                    <div className="font-semibold text-[#141414]">Research CSV / TSV</div>
-                    <div className="text-[9px] text-[#77736B]">Tables with titles/DOIs</div>
+                    <div className={`font-semibold ${isNight ? 'text-[#EDE8DF]' : 'text-[#141414]'}`}>Research CSV / TSV</div>
+                    <div className={`text-[9px] ${isNight ? 'text-[#8C8275]' : 'text-[#77736B]'}`}>Tables with titles/DOIs</div>
                   </div>
                 </div>
               </div>
@@ -478,18 +534,24 @@ export const DedicatedImportModal: React.FC<DedicatedImportModalProps> = ({
                 }}
                 className={`border-2 border-dashed p-8 text-center transition-all cursor-pointer ${
                   isDraggingFile
-                    ? 'border-[#1F3FB0] bg-[#EEF2FF]'
-                    : 'border-[#141414]/20 hover:border-[#1F3FB0] bg-white'
+                    ? isNight ? 'border-[#D4AF37] bg-[#2A241E]' : 'border-[#1F3FB0] bg-[#EEF2FF]'
+                    : isNight ? 'border-[#38322A] hover:border-[#D4AF37] bg-[#1E1B17]' : 'border-[#141414]/20 hover:border-[#1F3FB0] bg-white'
                 }`}
               >
-                <UploadCloud className="w-9 h-9 text-[#1F3FB0] mx-auto mb-2 opacity-80" />
-                <p className="font-serif text-base text-[#141414]">
+                <UploadCloud className={`w-9 h-9 mx-auto mb-2 opacity-80 ${isNight ? 'text-[#D4AF37]' : 'text-[#1F3FB0]'}`} />
+                <p className={`font-serif text-base ${isNight ? 'text-[#EDE8DF]' : 'text-[#141414]'}`}>
                   {uploadedFileName ? `Loaded: ${uploadedFileName}` : 'Drag & drop your export file here'}
                 </p>
-                <p className="font-mono text-[11px] text-[#77736B] mt-1">
+                <p className={`font-mono text-[11px] mt-1 ${isNight ? 'text-[#9E9689]' : 'text-[#77736B]'}`}>
                   Supports PubMed (.nbib, .medline, .csv), Web of Science (.ciw, .txt, .csv), Scopus (.csv, .bib, .ris), BibTeX (.bib)
                 </p>
-                <label className="inline-flex items-center gap-2 mt-4 px-4 py-2 bg-[#141414] text-white hover:bg-[#1F3FB0] font-mono text-xs uppercase tracking-wider transition-colors cursor-pointer">
+                <label
+                  className={`inline-flex items-center gap-2 mt-4 px-4 py-2 font-mono text-xs uppercase tracking-wider transition-colors cursor-pointer ${
+                    isNight
+                      ? 'bg-[#D4AF37] text-[#121110] hover:bg-[#F3C74D] font-semibold'
+                      : 'bg-[#141414] text-white hover:bg-[#1F3FB0]'
+                  }`}
+                >
                   <Upload className="w-3.5 h-3.5" />
                   <span>Browse Export File</span>
                   <input
@@ -506,48 +568,80 @@ export const DedicatedImportModal: React.FC<DedicatedImportModalProps> = ({
 
               {/* Detected format status banner */}
               {detectedFormat && parsedItems.length > 0 && (
-                <div className="p-3 bg-emerald-50 border border-emerald-300 text-emerald-950 text-xs font-mono flex items-center justify-between">
+                <div
+                  className={`p-3 border text-xs font-mono flex items-center justify-between ${
+                    isNight
+                      ? 'bg-[#1C281E] border-emerald-500/40 text-emerald-200'
+                      : 'bg-emerald-50 border border-emerald-300 text-emerald-950'
+                  }`}
+                >
                   <div className="flex items-center gap-2">
-                    <Check className="w-4 h-4 text-emerald-700 flex-shrink-0" />
+                    <Check className={`w-4 h-4 flex-shrink-0 ${isNight ? 'text-emerald-400' : 'text-emerald-700'}`} />
                     <span>
                       Detected <strong>{detectedFormat}</strong> ({uploadedFileName}): extracted <strong>{parsedItems.length}</strong> {parsedItems.length === 1 ? 'article' : 'articles'}.
                     </span>
                   </div>
-                  <span className="text-[10px] uppercase font-bold text-emerald-800 bg-emerald-200/70 px-2 py-0.5 rounded">
+                  <span
+                    className={`text-[10px] uppercase font-bold px-2 py-0.5 rounded ${
+                      isNight
+                        ? 'bg-emerald-900/60 text-emerald-200 border border-emerald-600/40'
+                        : 'bg-emerald-200/70 text-emerald-800'
+                    }`}
+                  >
                     Verified
                   </span>
                 </div>
               )}
 
               {/* Collapsible raw text paste box */}
-              <div className="border border-[#141414]/15 bg-white">
+              <div
+                className={`border transition-colors ${
+                  isNight ? 'border-[#38322A] bg-[#1E1B17]' : 'border-[#141414]/15 bg-white'
+                }`}
+              >
                 <button
                   type="button"
                   onClick={() => setIsPasteExpanded(!isPasteExpanded)}
-                  className="w-full px-3 py-2 text-left font-mono text-xs text-[#141414]/80 hover:text-[#141414] flex items-center justify-between cursor-pointer"
+                  className={`w-full px-3.5 py-2.5 text-left font-mono text-xs flex items-center justify-between cursor-pointer transition-colors ${
+                    isNight
+                      ? 'text-[#EDE8DF] hover:bg-[#25201A]'
+                      : 'text-[#141414] hover:bg-[#FAF9F5]'
+                  }`}
                 >
                   <span className="flex items-center gap-2 font-medium">
-                    <FileCode className="w-3.5 h-3.5 text-[#1F3FB0]" />
+                    <FileCode className={`w-3.5 h-3.5 ${isNight ? 'text-[#D4AF37]' : 'text-[#1F3FB0]'}`} />
                     <span>Or paste raw bibliography text / BibTeX / CSV rows</span>
                   </span>
                   {isPasteExpanded ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
                 </button>
 
                 {isPasteExpanded && (
-                  <div className="p-3 border-t border-[#141414]/10 space-y-2">
+                  <div
+                    className={`p-3 border-t space-y-2 ${
+                      isNight ? 'border-[#38322A] bg-[#181614]' : 'border-[#141414]/10 bg-[#FAF9F5]/40'
+                    }`}
+                  >
                     <textarea
                       rows={5}
                       placeholder="Paste raw BibTeX (@article{...}), PubMed MEDLINE (PMID- ...), RIS (TY - JOUR ...), or CSV text"
                       value={rawText}
                       onChange={(e) => setRawText(e.target.value)}
-                      className="w-full bg-[#FAF9F5] border border-[#141414]/20 p-2.5 font-mono text-xs text-[#141414] focus:outline-none focus:border-[#1F3FB0]"
+                      className={`w-full border p-2.5 font-mono text-xs focus:outline-none transition-colors ${
+                        isNight
+                          ? 'bg-[#121110] border-[#38322A] text-[#EDE8DF] placeholder-[#8C8275] focus:border-[#D4AF37]'
+                          : 'bg-[#FAF9F5] border-[#141414]/20 text-[#141414] placeholder-[#77736B] focus:border-[#1F3FB0]'
+                      }`}
                     />
                     <div className="flex justify-end">
                       <button
                         type="button"
                         onClick={() => parseBibliography(rawText)}
                         disabled={!rawText.trim()}
-                        className="bg-[#141414] text-white hover:bg-[#1F3FB0] disabled:bg-[#141414]/30 transition-colors px-4 py-1.5 font-mono text-xs uppercase cursor-pointer"
+                        className={`transition-colors px-4 py-2 font-mono text-xs uppercase cursor-pointer ${
+                          isNight
+                            ? 'bg-[#D4AF37] text-[#121110] hover:bg-[#F3C74D] font-semibold disabled:bg-[#38322A] disabled:text-[#8C8275]'
+                            : 'bg-[#141414] text-white hover:bg-[#1F3FB0] disabled:bg-[#141414]/30'
+                        }`}
                       >
                         Parse & Extract Articles
                       </button>
@@ -557,7 +651,13 @@ export const DedicatedImportModal: React.FC<DedicatedImportModalProps> = ({
               </div>
 
               {bibliographyError && (
-                <div className="bg-red-50 border border-red-200 p-3 text-red-800 text-xs flex items-center gap-2">
+                <div
+                  className={`p-3 text-xs flex items-center gap-2 border ${
+                    isNight
+                      ? 'bg-rose-950/40 border-rose-800 text-rose-200'
+                      : 'bg-red-50 border-red-200 text-red-800'
+                  }`}
+                >
                   <AlertCircle className="w-4 h-4 flex-shrink-0" />
                   <span>{bibliographyError}</span>
                 </div>
@@ -568,7 +668,7 @@ export const DedicatedImportModal: React.FC<DedicatedImportModalProps> = ({
           {/* DOI TAB */}
           {activeTab === 'doi' && (
             <div className="space-y-4">
-              <p className="font-sans text-xs text-[#141414]/70 leading-relaxed">
+              <p className={`font-sans text-xs leading-relaxed ${isNight ? 'text-[#C0B7A8]' : 'text-[#141414]/70'}`}>
                 Enter any scientific Digital Object Identifier (DOI). Metadata will be retrieved
                 live from the official Crossref bibliographic registry.
               </p>
@@ -579,26 +679,34 @@ export const DedicatedImportModal: React.FC<DedicatedImportModalProps> = ({
                   placeholder="e.g. 10.48550/arXiv.1706.03762 or full https://doi.org/... URL"
                   value={doiInput}
                   onChange={(e) => setDoiInput(e.target.value)}
-                  className="flex-1 bg-white border border-[#141414]/20 p-2.5 font-mono text-xs text-[#141414] focus:outline-none focus:border-[#1F3FB0]"
+                  className={`flex-1 border p-2.5 font-mono text-xs focus:outline-none transition-colors ${
+                    isNight
+                      ? 'bg-[#121110] border-[#38322A] text-[#EDE8DF] placeholder-[#8C8275] focus:border-[#D4AF37]'
+                      : 'bg-white border-[#141414]/20 text-[#141414] placeholder-[#77736B] focus:border-[#1F3FB0]'
+                  }`}
                 />
                 <button
                   type="submit"
                   disabled={isDoiLoading || !doiInput.trim()}
-                  className="bg-[#141414] text-white hover:bg-[#1F3FB0] disabled:bg-[#141414]/30 transition-colors px-5 py-2.5 font-mono text-xs uppercase tracking-wider flex items-center gap-2 cursor-pointer"
+                  className={`transition-colors px-5 py-2.5 font-mono text-xs uppercase tracking-wider flex items-center gap-2 cursor-pointer ${
+                    isNight
+                      ? 'bg-[#D4AF37] text-[#121110] hover:bg-[#F3C74D] font-semibold disabled:bg-[#38322A] disabled:text-[#8C8275]'
+                      : 'bg-[#141414] text-white hover:bg-[#1F3FB0] disabled:bg-[#141414]/30'
+                  }`}
                 >
                   {isDoiLoading ? 'Querying...' : 'Fetch Metadata'}
                 </button>
               </form>
 
               {/* Landmark open-science DOIs for quick test */}
-              <div className="flex flex-wrap items-center gap-2 text-xs font-mono text-[#141414]/50">
+              <div className={`flex flex-wrap items-center gap-2 text-xs font-mono ${isNight ? 'text-[#9E9689]' : 'text-[#141414]/50'}`}>
                 <span>Try open-access landmark:</span>
                 <button
                   type="button"
                   onClick={() => {
                     setDoiInput('10.48550/arXiv.1706.03762');
                   }}
-                  className="text-[#1F3FB0] hover:underline cursor-pointer"
+                  className={`cursor-pointer transition-colors ${isNight ? 'text-[#D4AF37] hover:underline' : 'text-[#1F3FB0] hover:underline'}`}
                   title="Attention Is All You Need (Transformer Architecture)"
                 >
                   Attention (Transformer)
@@ -609,7 +717,7 @@ export const DedicatedImportModal: React.FC<DedicatedImportModalProps> = ({
                   onClick={() => {
                     setDoiInput('10.1126/science.1225829');
                   }}
-                  className="text-[#1F3FB0] hover:underline cursor-pointer"
+                  className={`cursor-pointer transition-colors ${isNight ? 'text-[#D4AF37] hover:underline' : 'text-[#1F3FB0] hover:underline'}`}
                   title="CRISPR-Cas9 Programmable Gene Editing"
                 >
                   CRISPR-Cas9
@@ -620,7 +728,7 @@ export const DedicatedImportModal: React.FC<DedicatedImportModalProps> = ({
                   onClick={() => {
                     setDoiInput('10.1038/s41586-021-03819-2');
                   }}
-                  className="text-[#1F3FB0] hover:underline cursor-pointer"
+                  className={`cursor-pointer transition-colors ${isNight ? 'text-[#D4AF37] hover:underline' : 'text-[#1F3FB0] hover:underline'}`}
                   title="AlphaFold: Highly accurate protein structure prediction"
                 >
                   AlphaFold
@@ -628,7 +736,13 @@ export const DedicatedImportModal: React.FC<DedicatedImportModalProps> = ({
               </div>
 
               {doiError && (
-                <div className="bg-red-50 border border-red-200 p-3 text-red-800 text-xs flex items-center gap-2">
+                <div
+                  className={`p-3 text-xs flex items-center gap-2 border ${
+                    isNight
+                      ? 'bg-rose-950/40 border-rose-800 text-rose-200'
+                      : 'bg-red-50 border-red-200 text-red-800'
+                  }`}
+                >
                   <AlertCircle className="w-4 h-4 flex-shrink-0" />
                   <span>{doiError}</span>
                 </div>
@@ -639,17 +753,23 @@ export const DedicatedImportModal: React.FC<DedicatedImportModalProps> = ({
           {/* PDF UPLOAD TAB */}
           {activeTab === 'pdf' && (
             <div className="space-y-4">
-              <p className="font-sans text-xs text-[#141414]/70 leading-relaxed">
+              <p className={`font-sans text-xs leading-relaxed ${isNight ? 'text-[#C0B7A8]' : 'text-[#141414]/70'}`}>
                 Upload a research PDF for private reading. Its original bytes are kept intact and
                 rendered in the reader.
               </p>
 
-              <label className="border-2 border-dashed border-[#141414]/20 hover:border-[#1F3FB0] bg-white p-8 flex flex-col items-center justify-center cursor-pointer transition-colors block text-center">
-                <Upload className="w-8 h-8 text-[#141414]/40 mb-2" />
-                <span className="font-serif text-base text-[#141414] block">
+              <label
+                className={`border-2 border-dashed p-8 flex flex-col items-center justify-center cursor-pointer transition-colors block text-center ${
+                  isNight
+                    ? 'border-[#38322A] hover:border-[#D4AF37] bg-[#1E1B17]'
+                    : 'border-[#141414]/20 hover:border-[#1F3FB0] bg-white'
+                }`}
+              >
+                <Upload className={`w-8 h-8 mb-2 ${isNight ? 'text-[#D4AF37]' : 'text-[#141414]/40'}`} />
+                <span className={`font-serif text-base block ${isNight ? 'text-[#EDE8DF]' : 'text-[#141414]'}`}>
                   {uploadedPdfName || 'Drop PDF file here or browse computer'}
                 </span>
-                <span className="font-mono text-[10px] text-[#141414]/50 mt-1 block">
+                <span className={`font-mono text-[10px] mt-1 block ${isNight ? 'text-[#9E9689]' : 'text-[#141414]/50'}`}>
                   {isPdfUploading ? 'Storing PDF…' : 'Supports .pdf files up to 50 MB'}
                 </span>
                 <input
@@ -659,16 +779,32 @@ export const DedicatedImportModal: React.FC<DedicatedImportModalProps> = ({
                   className="hidden"
                 />
               </label>
-              {pdfUploadError && <p role="alert" className="text-sm text-rose-800">{pdfUploadError}</p>}
-              {uploadedPdfName && <p role="status" className="text-xs text-emerald-800">PDF ready to import: {uploadedPdfName}</p>}
+              {pdfUploadError && (
+                <p role="alert" className={`text-sm ${isNight ? 'text-rose-300' : 'text-rose-800'}`}>
+                  {pdfUploadError}
+                </p>
+              )}
+              {uploadedPdfName && (
+                <p role="status" className={`text-xs ${isNight ? 'text-emerald-300' : 'text-emerald-800'}`}>
+                  PDF ready to import: {uploadedPdfName}
+                </p>
+              )}
             </div>
           )}
 
           {/* Preview Parsed Items Section */}
           {parsedItems.length > 0 && (
-            <div className="border-t border-[#141414]/15 pt-5 space-y-4">
+            <div
+              className={`border-t pt-5 space-y-4 ${
+                isNight ? 'border-[#38322A]' : 'border-[#141414]/15'
+              }`}
+            >
               <div className="flex items-center justify-between">
-                <span className="font-mono text-xs uppercase tracking-widest text-[#1F3FB0] font-semibold flex items-center gap-1.5">
+                <span
+                  className={`font-mono text-xs uppercase tracking-widest font-semibold flex items-center gap-1.5 ${
+                    isNight ? 'text-[#D4AF37]' : 'text-[#1F3FB0]'
+                  }`}
+                >
                   <Check className="w-4 h-4" />
                   STAGED FOR IMPORT ({parsedItems.length})
                 </span>
@@ -680,10 +816,14 @@ export const DedicatedImportModal: React.FC<DedicatedImportModalProps> = ({
                   return (
                     <div
                       key={idx}
-                      className={`p-3 border text-xs flex flex-col justify-between ${
+                      className={`p-3 border text-xs flex flex-col justify-between transition-colors ${
                         dup
-                          ? 'bg-amber-50/70 border-amber-300 text-amber-900'
-                          : 'bg-white border-[#141414]/15 text-[#141414]'
+                          ? isNight
+                            ? 'bg-[#2A2016] border-amber-600/40 text-[#F5E6CC]'
+                            : 'bg-amber-50/70 border-amber-300 text-amber-900'
+                          : isNight
+                            ? 'bg-[#1E1B17] border-[#38322A] text-[#EDE8DF]'
+                            : 'bg-white border-[#141414]/15 text-[#141414]'
                       }`}
                     >
                       <div className="flex items-start justify-between gap-2">
@@ -691,12 +831,22 @@ export const DedicatedImportModal: React.FC<DedicatedImportModalProps> = ({
                           {item.title}
                         </div>
                         {dup && (
-                          <span className="font-mono text-[9px] uppercase bg-amber-200 text-amber-800 px-1.5 py-0.5 rounded font-semibold flex-shrink-0">
+                          <span
+                            className={`font-mono text-[9px] uppercase px-1.5 py-0.5 rounded font-semibold flex-shrink-0 ${
+                              isNight
+                                ? 'bg-amber-900/60 text-amber-200 border border-amber-700/50'
+                                : 'bg-amber-200 text-amber-800'
+                            }`}
+                          >
                             Potential Duplicate
                           </span>
                         )}
                       </div>
-                      <div className="font-mono text-[10px] text-[#141414]/60 mt-1 flex flex-wrap gap-2">
+                      <div
+                        className={`font-mono text-[10px] mt-1 flex flex-wrap gap-2 ${
+                          isNight ? 'text-[#9E9689]' : 'text-[#141414]/60'
+                        }`}
+                      >
                         <span>{item.authors.join(', ')}</span>
                         <span>•</span>
                         <span>{item.year}</span>
@@ -709,7 +859,9 @@ export const DedicatedImportModal: React.FC<DedicatedImportModalProps> = ({
                         {item.doi && (
                           <>
                             <span>•</span>
-                            <span className="text-[#1F3FB0]">DOI: {item.doi}</span>
+                            <span className={isNight ? 'text-[#D4AF37]' : 'text-[#1F3FB0]'}>
+                              DOI: {item.doi}
+                            </span>
                           </>
                         )}
                       </div>
@@ -719,15 +871,27 @@ export const DedicatedImportModal: React.FC<DedicatedImportModalProps> = ({
               </div>
 
               {/* Ingestion Settings */}
-              <div className="bg-[#E7E4DC] border border-[#141414]/15 p-4 grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div
+                className={`border p-4 grid grid-cols-1 md:grid-cols-2 gap-4 transition-colors ${
+                  isNight ? 'bg-[#1E1B17] border-[#38322A]' : 'bg-[#E7E4DC] border-[#141414]/15'
+                }`}
+              >
                 <div>
-                  <label className="block font-mono text-[11px] uppercase tracking-wider text-[#141414]/60 mb-1">
+                  <label
+                    className={`block font-mono text-[11px] uppercase tracking-wider mb-1 ${
+                      isNight ? 'text-[#C0B7A8]' : 'text-[#141414]/60'
+                    }`}
+                  >
                     Assign Research Field
                   </label>
                   <select
                     value={defaultCategory}
                     onChange={(e) => setDefaultCategory(e.target.value as ResearchCategory)}
-                    className="w-full bg-white border border-[#141414]/20 p-2 font-mono text-xs focus:outline-none focus:border-[#1F3FB0] cursor-pointer"
+                    className={`w-full border p-2 font-mono text-xs focus:outline-none cursor-pointer transition-colors ${
+                      isNight
+                        ? 'bg-[#121110] border-[#38322A] text-[#EDE8DF] focus:border-[#D4AF37]'
+                        : 'bg-white border-[#141414]/20 text-[#141414] focus:border-[#1F3FB0]'
+                    }`}
                   >
                     {categories
                       .filter((c) => c.id !== 'ALL')
@@ -740,7 +904,11 @@ export const DedicatedImportModal: React.FC<DedicatedImportModalProps> = ({
                 </div>
 
                 <div>
-                  <label className="block font-mono text-[11px] uppercase tracking-wider text-[#141414]/60 mb-1">
+                  <label
+                    className={`block font-mono text-[11px] uppercase tracking-wider mb-1 ${
+                      isNight ? 'text-[#C0B7A8]' : 'text-[#141414]/60'
+                    }`}
+                  >
                     Initial Reading Status
                   </label>
                   <select
@@ -750,7 +918,11 @@ export const DedicatedImportModal: React.FC<DedicatedImportModalProps> = ({
                         e.target.value as 'inbox' | 'to_read' | 'reading' | 'reference_only'
                       )
                     }
-                    className="w-full bg-white border border-[#141414]/20 p-2 font-mono text-xs focus:outline-none focus:border-[#1F3FB0] cursor-pointer"
+                    className={`w-full border p-2 font-mono text-xs focus:outline-none cursor-pointer transition-colors ${
+                      isNight
+                        ? 'bg-[#121110] border-[#38322A] text-[#EDE8DF] focus:border-[#D4AF37]'
+                        : 'bg-white border-[#141414]/20 text-[#141414] focus:border-[#1F3FB0]'
+                    }`}
                   >
                     <option value="inbox">Inbox (Unsorted)</option>
                     <option value="to_read">To Read</option>
@@ -760,41 +932,120 @@ export const DedicatedImportModal: React.FC<DedicatedImportModalProps> = ({
                 </div>
 
                 <fieldset className="md:col-span-2 space-y-3">
-                  <legend className="block font-mono text-[11px] uppercase tracking-wider text-[#141414]/60 mb-2">
+                  <legend
+                    className={`block font-mono text-[11px] uppercase tracking-wider mb-2 ${
+                      isNight ? 'text-[#C0B7A8]' : 'text-[#141414]/60'
+                    }`}
+                  >
                     File these papers in a book
                   </legend>
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                    <label className="block font-mono text-[10px] uppercase tracking-wide text-[#5A534A]">
+                    <label
+                      className={`block font-mono text-[10px] uppercase tracking-wide ${
+                        isNight ? 'text-[#C0B7A8]' : 'text-[#5A534A]'
+                      }`}
+                    >
                       Research area
-                      <select aria-label="Research area" value={createNewArea ? '__new_area__' : destinationAreaId} onChange={(event) => {
-                        const value = event.target.value;
-                        setCreateNewArea(value === '__new_area__');
-                        setCreateNewBook(false);
-                        setDestinationAreaId(value === '__new_area__' ? '' : value);
-                        setDestinationBookId('');
-                      }} className="mt-1 w-full border border-[#141414]/20 bg-white p-2 font-sans text-sm normal-case text-[#141414]">
+                      <select
+                        aria-label="Research area"
+                        value={createNewArea ? '__new_area__' : destinationAreaId}
+                        onChange={(event) => {
+                          const value = event.target.value;
+                          setCreateNewArea(value === '__new_area__');
+                          setCreateNewBook(false);
+                          setDestinationAreaId(value === '__new_area__' ? '' : value);
+                          setDestinationBookId('');
+                        }}
+                        className={`mt-1 w-full border p-2 font-sans text-sm normal-case transition-colors ${
+                          isNight
+                            ? 'bg-[#121110] border-[#38322A] text-[#EDE8DF] focus:border-[#D4AF37]'
+                            : 'bg-white border-[#141414]/20 text-[#141414] focus:border-[#1F3FB0]'
+                        }`}
+                      >
                         <option value="">Choose a research area…</option>
                         <option value="__root__">My Research · no area</option>
-                        {areas.map((area) => <option key={area.id} value={area.id}>{area.name}</option>)}
+                        {areas.map((area) => (
+                          <option key={area.id} value={area.id}>
+                            {area.name}
+                          </option>
+                        ))}
                         <option value="__new_area__">＋ Create a new research area…</option>
                       </select>
                     </label>
-                    <label className="block font-mono text-[10px] uppercase tracking-wide text-[#5A534A]">
+                    <label
+                      className={`block font-mono text-[10px] uppercase tracking-wide ${
+                        isNight ? 'text-[#C0B7A8]' : 'text-[#5A534A]'
+                      }`}
+                    >
                       Book
-                      <select aria-label="Book" value={createNewBook ? '__new_book__' : destinationBookId} disabled={!createNewArea && !destinationAreaId} onChange={(event) => {
-                        const value = event.target.value;
-                        setCreateNewBook(value === '__new_book__');
-                        setDestinationBookId(value === '__new_book__' ? '' : value);
-                      }} className="mt-1 w-full border border-[#141414]/20 bg-white p-2 font-sans text-sm normal-case text-[#141414] disabled:bg-[#E7E4DC]">
+                      <select
+                        aria-label="Book"
+                        value={createNewBook ? '__new_book__' : destinationBookId}
+                        disabled={!createNewArea && !destinationAreaId}
+                        onChange={(event) => {
+                          const value = event.target.value;
+                          setCreateNewBook(value === '__new_book__');
+                          setDestinationBookId(value === '__new_book__' ? '' : value);
+                        }}
+                        className={`mt-1 w-full border p-2 font-sans text-sm normal-case transition-colors ${
+                          isNight
+                            ? 'bg-[#121110] border-[#38322A] text-[#EDE8DF] disabled:bg-[#1E1B17] disabled:text-[#8C8275] focus:border-[#D4AF37]'
+                            : 'bg-white border-[#141414]/20 text-[#141414] disabled:bg-[#E7E4DC] focus:border-[#1F3FB0]'
+                        }`}
+                      >
                         <option value="">Choose a book…</option>
-                        {destinationBooks.map((book) => <option key={book.id} value={book.id}>{book.name}</option>)}
+                        {destinationBooks.map((book) => (
+                          <option key={book.id} value={book.id}>
+                            {book.name}
+                          </option>
+                        ))}
                         <option value="__new_book__">＋ Create a new book…</option>
                       </select>
                     </label>
                   </div>
-                  {createNewArea && <label className="block font-mono text-[10px] uppercase tracking-wide text-[#5A534A]">New research area name<input aria-label="New research area name" value={newAreaName} onChange={(event) => setNewAreaName(event.target.value)} placeholder="e.g. Food systems" className="mt-1 w-full border border-[#141414]/20 bg-white p-2 font-sans text-sm normal-case text-[#141414]" /></label>}
-                  {createNewBook && <label className="block font-mono text-[10px] uppercase tracking-wide text-[#5A534A]">New book name<input aria-label="New book name" value={newBookName} onChange={(event) => setNewBookName(event.target.value)} placeholder="e.g. Literature review" className="mt-1 w-full border border-[#141414]/20 bg-white p-2 font-sans text-sm normal-case text-[#141414]" /></label>}
-                  <p className="text-[10px] font-mono text-[#77736B]">Every imported paper will be placed in this one book. You can move it later.</p>
+                  {createNewArea && (
+                    <label
+                      className={`block font-mono text-[10px] uppercase tracking-wide ${
+                        isNight ? 'text-[#C0B7A8]' : 'text-[#5A534A]'
+                      }`}
+                    >
+                      New research area name
+                      <input
+                        aria-label="New research area name"
+                        value={newAreaName}
+                        onChange={(event) => setNewAreaName(event.target.value)}
+                        placeholder="e.g. Food systems"
+                        className={`mt-1 w-full border p-2 font-sans text-sm normal-case transition-colors ${
+                          isNight
+                            ? 'bg-[#121110] border-[#38322A] text-[#EDE8DF] placeholder-[#8C8275] focus:border-[#D4AF37]'
+                            : 'bg-white border-[#141414]/20 text-[#141414] placeholder-[#77736B] focus:border-[#1F3FB0]'
+                        }`}
+                      />
+                    </label>
+                  )}
+                  {createNewBook && (
+                    <label
+                      className={`block font-mono text-[10px] uppercase tracking-wide ${
+                        isNight ? 'text-[#C0B7A8]' : 'text-[#5A534A]'
+                      }`}
+                    >
+                      New book name
+                      <input
+                        aria-label="New book name"
+                        value={newBookName}
+                        onChange={(event) => setNewBookName(event.target.value)}
+                        placeholder="e.g. Literature review"
+                        className={`mt-1 w-full border p-2 font-sans text-sm normal-case transition-colors ${
+                          isNight
+                            ? 'bg-[#121110] border-[#38322A] text-[#EDE8DF] placeholder-[#8C8275] focus:border-[#D4AF37]'
+                            : 'bg-white border-[#141414]/20 text-[#141414] placeholder-[#77736B] focus:border-[#1F3FB0]'
+                        }`}
+                      />
+                    </label>
+                  )}
+                  <p className={`text-[10px] font-mono ${isNight ? 'text-[#8C8275]' : 'text-[#77736B]'}`}>
+                    Every imported paper will be placed in this one book. You can move it later.
+                  </p>
                 </fieldset>
               </div>
             </div>
@@ -802,10 +1053,18 @@ export const DedicatedImportModal: React.FC<DedicatedImportModalProps> = ({
         </div>
 
         {/* Modal Footer */}
-        <div className="border-t border-[#141414]/15 bg-[#E7E4DC] px-6 py-4 flex items-center justify-between">
+        <div
+          className={`border-t px-6 py-4 flex items-center justify-between transition-colors ${
+            isNight ? 'border-[#38322A] bg-[#1E1B17]' : 'border-[#141414]/15 bg-[#E7E4DC]'
+          }`}
+        >
           <button
             onClick={onClose}
-            className="px-4 py-2 border border-[#141414]/20 font-mono text-xs uppercase hover:bg-white transition-colors cursor-pointer"
+            className={`px-4 py-2 border font-mono text-xs uppercase transition-colors cursor-pointer ${
+              isNight
+                ? 'border-[#38322A] text-[#EDE8DF] hover:bg-[#25201A]'
+                : 'border-[#141414]/20 text-[#141414] hover:bg-white'
+            }`}
           >
             Cancel
           </button>
@@ -813,7 +1072,11 @@ export const DedicatedImportModal: React.FC<DedicatedImportModalProps> = ({
           <button
             onClick={handleCommitImport}
             disabled={parsedItems.length === 0 || !destinationReady}
-            className="bg-[#141414] text-white hover:bg-[#1F3FB0] disabled:bg-[#141414]/20 disabled:cursor-not-allowed transition-colors px-6 py-2.5 font-mono text-xs uppercase tracking-wider flex items-center gap-2 cursor-pointer font-medium"
+            className={`transition-colors px-6 py-2.5 font-mono text-xs uppercase tracking-wider flex items-center gap-2 cursor-pointer font-medium ${
+              isNight
+                ? 'bg-[#D4AF37] text-[#121110] hover:bg-[#F3C74D] font-semibold disabled:bg-[#38322A] disabled:text-[#8C8275] disabled:cursor-not-allowed'
+                : 'bg-[#141414] text-white hover:bg-[#1F3FB0] disabled:bg-[#141414]/20 disabled:cursor-not-allowed'
+            }`}
           >
             <span>{destinationReady ? `Import ${parsedItems.length > 0 ? `(${parsedItems.length})` : ''} into book` : 'Choose an area and book'}</span>
             <ArrowRight className="w-4 h-4" />

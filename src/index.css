@@ -223,6 +223,12 @@ html.dark .bg-\[\#F5F1E8\]\/70 {
 /* 3. Typography contrast in Night Mode */
 html.theme-nocturne .text-\[\#141414\],
 html.dark .text-\[\#141414\],
+html.theme-nocturne .text-\[\#141414\]\/90,
+html.dark .text-\[\#141414\]\/90,
+html.theme-nocturne .text-\[\#141414\]\/85,
+html.dark .text-\[\#141414\]\/85,
+html.theme-nocturne .text-\[\#141414\]\/80,
+html.dark .text-\[\#141414\]\/80,
 html.theme-nocturne .text-\[\#1A1612\],
 html.dark .text-\[\#1A1612\],
 html.theme-nocturne .text-\[\#1E1A16\],
@@ -232,6 +238,36 @@ html.dark .text-\[\#2C2520\],
 html.theme-nocturne .text-\[\#2B2823\],
 html.dark .text-\[\#2B2823\] {
   color: #EDE8DF !important;
+}
+
+html.theme-nocturne .text-\[\#141414\]\/75,
+html.dark .text-\[\#141414\]\/75,
+html.theme-nocturne .text-\[\#141414\]\/70,
+html.dark .text-\[\#141414\]\/70,
+html.theme-nocturne .text-\[\#141414\]\/65,
+html.dark .text-\[\#141414\]\/65,
+html.theme-nocturne .text-\[\#141414\]\/60,
+html.dark .text-\[\#141414\]\/60 {
+  color: #C0B7A8 !important;
+}
+
+html.theme-nocturne .text-\[\#141414\]\/50,
+html.dark .text-\[\#141414\]\/50,
+html.theme-nocturne .text-\[\#141414\]\/40,
+html.dark .text-\[\#141414\]\/40 {
+  color: #9E9689 !important;
+}
+
+html.theme-nocturne .text-\[\#141414\]\/30,
+html.dark .text-\[\#141414\]\/30,
+html.theme-nocturne .text-\[\#141414\]\/20,
+html.dark .text-\[\#141414\]\/20 {
+  color: rgba(237, 232, 223, 0.45) !important;
+}
+
+html.theme-nocturne .hover\:text-\[\#141414\]:hover,
+html.dark .hover\:text-\[\#141414\]:hover {
+  color: #FFFFFF !important;
 }
 
 html.theme-nocturne .text-\[\#35302B\],

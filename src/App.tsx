@@ -2016,6 +2016,7 @@ export default function App() {
       <DedicatedImportModal
         isOpen={isImportModalOpen}
         initialTab={importModalTab}
+        isNightMode={isNightMode}
         onClose={() => { setIsImportModalOpen(false); setImportCollectionIds([]); }}
         existingPapers={researchItems}
         onImportPapers={handleImportPapers}
